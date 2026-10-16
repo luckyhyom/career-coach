@@ -89,11 +89,26 @@ class Fetcher:
     @staticmethod
     def _cache_paths(url: str):
         h = hashlib.sha1(url.encode()).hexdigest()
-        return CACHE_DIR / f"{h}.body", CACHE_DIR / f"{h}.meta.json"
+        return CACHE_DIR / f"{h}.body.gz", CACHE_DIR / f"{h}.meta.json"
+
+    @staticmethod
+    def _read(body_p) -> Optional[str]:
+        """Raw page snapshot (gzip). Falls back to legacy uncompressed .body files."""
+        if body_p.exists():
+            return gzip.decompress(body_p.read_bytes()).decode("utf-8")
+        legacy = body_p.with_suffix("")  # .body
+        return legacy.read_text("utf-8") if legacy.exists() else None
+
+    @staticmethod
+    def _write(body_p, text: str) -> None:
+        body_p.write_bytes(gzip.compress(text.encode("utf-8"), compresslevel=6))
+        legacy = body_p.with_suffix("")
+        if legacy.exists():
+            legacy.unlink()
 
     def cached(self, url: str) -> Optional[str]:
         body, _ = self._cache_paths(url)
-        return body.read_text("utf-8") if body.exists() else None
+        return self._read(body)
 
     # ---------- main ----------
     def get(self, url: str, use_cache: bool = True, revalidate: bool = True) -> Optional[str]:
@@ -103,9 +118,11 @@ class Fetcher:
         use_cache + revalidate: conditional GET (listing pages, sitemaps).
         """
         body_p, meta_p = self._cache_paths(url)
-        if use_cache and not revalidate and body_p.exists():
-            self.cache_hits += 1
-            return body_p.read_text("utf-8")
+        if use_cache and not revalidate:
+            cached = self._read(body_p)
+            if cached is not None:
+                self.cache_hits += 1
+                return cached
 
         if not self.allowed(url):
             log.info("robots.txt disallows %s", url)
@@ -133,7 +150,7 @@ class Fetcher:
                     if resp.headers.get("Content-Encoding") == "gzip":
                         raw = gzip.decompress(raw)
                     text = raw.decode(resp.headers.get_content_charset() or "utf-8", "replace")
-                    body_p.write_text(text, "utf-8")
+                    self._write(body_p, text)
                     meta_p.write_text(json.dumps({
                         "url": url,
                         "etag": resp.headers.get("ETag"),
@@ -143,9 +160,9 @@ class Fetcher:
                     self._failures = 0
                     return text
             except urllib.error.HTTPError as e:
-                if e.code == 304 and body_p.exists():
+                if e.code == 304 and self._read(body_p) is not None:
                     self.cache_hits += 1
-                    return body_p.read_text("utf-8")
+                    return self._read(body_p)
                 if e.code in (404, 410):
                     return None
                 if e.code in (403,):

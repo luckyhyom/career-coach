@@ -30,8 +30,22 @@ SCHEMA = {
             "severity": {"type": "string", "enum": ["high", "medium", "low"]}},
             "required": ["resume_quote", "problem", "fix", "evidence_type", "evidence", "severity"]}},
         "biggest_lever": {"type": "string"},
+        "summary": {"type": "array", "items": {"type": "string"}, "description": "핵심 판정 3줄"},
+        "levers": {"type": "array", "description": "우선 개선 3가지(효과 큰 순)", "items": {"type": "object", "properties": {
+            "title": {"type": "string"}, "why": {"type": "string", "description": "근거 태그 포함"},
+            "how": {"type": "string", "description": "구체적 실행(어느 bullet을 어떻게)"},
+            "axis": {"type": "string", "enum": list(AXES)}}, "required": ["title", "why", "how", "axis"]}},
+        "interview_questions": {"type": "array", "items": {"type": "object", "properties": {
+            "q": {"type": "string"}, "follow_up": {"type": "string"},
+            "based_on": {"type": "string", "description": "이력서 원문 또는 공고 uid"}},
+            "required": ["q", "follow_up", "based_on"]}},
+        "job_match": {"type": "array", "description": "job이 주어졌을 때만: job.items 중 must 항목별 판정",
+                      "items": {"type": "object", "properties": {
+                          "requirement_quote": {"type": "string"}, "status": {"type": "string", "enum": ["met", "partial", "missing"]},
+                          "resume_evidence": {"type": "string"}, "gap_type": {"type": "string", "enum": ["real_gap", "ignorable", "none"]}},
+                          "required": ["requirement_quote", "status", "resume_evidence", "gap_type"]}},
     },
-    "required": ["axis_scores", "issues", "biggest_lever"],
+    "required": ["axis_scores", "issues", "biggest_lever", "summary", "levers", "interview_questions", "job_match"],
 }
 
 SYSTEM = """너는 백엔드 이력서 평가자다. 입력은 JSON 컨텍스트 팩(persona=단계 통계, job=대상 공고, similar=유사 공고 필수요건, mentor=멘토 원칙, resume=이력서)이다.
@@ -41,7 +55,9 @@ SYSTEM = """너는 백엔드 이력서 평가자다. 입력은 JSON 컨텍스트
 3. evidence_type: 공고(job/similar의 원문 quote를 그대로+uid) / 통계(persona 수치) / 멘토(mentor principle id) / 단계추정(통계로부터의 추론, 단정 금지) / 의견.
 4. 이력서에 없는 경험·수치를 만들지 않는다. 모르는 값은 [측정값].
 5. "수치를 넣으세요" 같은 일반론 금지. 약점(high/medium) 최소 3개. 근거 없는 칭찬 금지.
-6. 한국어."""
+6. summary 3줄, levers 3개(효과 큰 순, why에 근거 태그), interview_questions 5개(이력서 문장이나 공고에서 파생, 꼬리질문 포함).
+7. job이 있으면 job_match에 must 항목마다 met/partial/missing과 이력서 근거, gap_type(필수 미충족=real_gap). job이 없으면 빈 배열.
+8. 한국어."""
 
 
 def _norm(s):
@@ -64,7 +80,7 @@ def validate(result: dict, pack: dict) -> dict:
             fails.append("quote_not_in_resume")
         et, ev = it["evidence_type"], it.get("evidence", "")
         if et == "공고":
-            m = re.search(r'["“](.+?)["”]', ev)
+            m = re.search(r'["“\'‘「](.+?)["”\'’」]', ev)
             if not m or _norm(m.group(1))[:40] not in pack_text:
                 fails.append("job_quote_not_in_pack")
         if et == "멘토" and not any(mid in ev for mid in mentor_ids):
@@ -86,11 +102,12 @@ def validate(result: dict, pack: dict) -> dict:
     }
 
 
-def review(pack: dict, model: str) -> dict:
+def review(pack: dict, model: str = "route:review") -> dict:
     user = json.dumps({k: pack[k] for k in ("persona", "job", "similar", "mentor", "resume") if pack.get(k)}, ensure_ascii=False)
     out = complete(model, SYSTEM, user, SCHEMA)
-    result = out["json"] or {"axis_scores": [], "issues": [], "biggest_lever": ""}
-    return {"model": model, "result": result, "validation": validate(result, pack),
+    result = out["json"] or {"axis_scores": [], "issues": [], "biggest_lever": "", "summary": [], "levers": [],
+                              "interview_questions": [], "job_match": []}
+    return {"model": out["model"], "result": result, "validation": validate(result, pack),
             "usage": out["usage"], "cost_usd": out["cost_usd"], "latency_s": out["latency_s"]}
 
 

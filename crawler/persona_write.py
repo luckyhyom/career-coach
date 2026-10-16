@@ -75,6 +75,13 @@ def compact(p: dict, neighbors: dict) -> dict:
             "process_pct", "min_years_median", "scope", "product_maturity", "hiring_reason", "domains", "role_types",
             "stack_flexibility"]
     c = {k: p.get(k) for k in keep}
+    # quantize so tiny shifts of the overall mean (one posting changed) don't change the input hash -> no needless regen
+    c["axis_weight"] = {a: round(v, 2) for a, v in (c.get("axis_weight") or {}).items()}
+    c["lift"] = {a: (round(v * 20) / 20 if v is not None else None) for a, v in (c.get("lift") or {}).items()}
+    for nb in neighbors.values():
+        nb["lift"] = {a: (round(v * 20) / 20 if v is not None else None) for a, v in nb["lift"].items()}
+        nb["process_pct"] = {k: round(v / 5) * 5 for k, v in nb["process_pct"].items()}
+    c["process_pct"] = {k: round(v / 5) * 5 for k, v in (c.get("process_pct") or {}).items()}
     c["axis_quotes"] = {a: [{"q": q["quote"][:140], "uid": q["uid"]} for q in qs[:5]] for a, qs in p["axis_quotes"].items()}
     c["red_flags"] = [{"flag": f["flag"], "uid": f["uid"]} for f in p["red_flags"][:15]]
     c["team_problems"] = [{"t": t["text"][:160], "uid": t["uid"]} for t in p["team_problems"][:12]]
@@ -138,7 +145,9 @@ def _n(s):
 MIN_COMPANIES = 3
 
 
-def write(band: str, model: str, force: bool = False):
+def write(band: str, model: str = None, force: bool = False):
+    from coach.llm import complete, route
+    model = model or route("persona_write")
     p = json.loads((DATA / f"{band}.json").read_text("utf-8"))
     if p["companies"] < MIN_COMPANIES:
         # not enough independent evidence for a stage-specific persona -> fall back to the whole-market profile
@@ -159,11 +168,10 @@ def write(band: str, model: str, force: bool = False):
         if old.get("_meta", {}).get("input_hash") == key:
             render(band, p, old)  # inputs unchanged -> no LLM call
             return {"skipped": "unchanged", "input_hash": key}
-    proc = subprocess.run([CLAUDE, "-p", INSTRUCTION, "--model", model, "--output-format", "json", "--json-schema",
-                           json.dumps(SCHEMA), "--tools", "", "--strict-mcp-config", "--no-session-persistence"],
-                          input=payload, capture_output=True, text=True, timeout=600, cwd="/tmp")
-    out = json.loads(proc.stdout)
-    card = out["structured_output"]
+    out = complete(model, INSTRUCTION, payload, SCHEMA)
+    card = out["json"]
+    if not card:
+        raise RuntimeError(f"no structured output from {model}")
     ok = valid_uids(p)
     for a in card["axes"]:  # existence: uid belongs to this band's evidence
         a["cite_uids"] = [u for u in a["cite_uids"] if u in ok]
@@ -171,7 +179,7 @@ def write(band: str, model: str, force: bool = False):
         f["cite_uids"] = [u for u in f["cite_uids"] if u in ok]
     card["question_bank"] = [q for q in card["question_bank"] if q["from_uid"] in ok]
     support = check_support(card, p)  # support: the cited posting actually says that
-    card["_meta"] = {"cost_usd": out.get("total_cost_usd"), "model": model, "input_hash": key,
+    card["_meta"] = {"cost_usd": out["cost_usd"], "model": model, "input_hash": key,
                      "writer_version": WRITER_VERSION, "support_check": support}
     (DATA / f"{band}.card.json").write_text(json.dumps(card, ensure_ascii=False, indent=1), "utf-8")
     render(band, p, card)
@@ -200,7 +208,7 @@ def render(band, p, card):
     L += [f"- {q['q']}\n  - 꼬리: {q['follow_up']} ({q['from_uid']})" for q in card["question_bank"]]
     L += ["", "## 지원자에게  `[단계추정]` 데이터 기반 가설 — 개별 공고(`/job-fit`)로 반드시 확인", ""] + [f"- {x}" for x in card["candidate_advice"]]
     L += ["", "## 동작 규칙",
-          "- `personas/_rubric.md`(점수 앵커·지적 4요소·아첨 방지)를 먼저 따르고, 위 **이 단계의 증거 기준**으로 앵커를 구체화한다.",
+          "- `prompts/rubric.md`(점수 앵커·지적 4요소·아첨 방지)를 먼저 따르고, 위 **이 단계의 증거 기준**으로 앵커를 구체화한다.",
           f"- 가중치 `data/personas/{band}.json`의 axis_weight로 총점을 계산한다. 공고 원문 인용은 axis_quotes에서 그대로 가져온다.",
           "- 출력: 축별 점수(0~5, 기준 한 줄) → 지적 목록(4요소) → 약점 3개+ → 가장 큰 레버 1개."]
     (OUT / f"stage-{band}.md").write_text("\n".join(L) + "\n", "utf-8")
@@ -209,7 +217,7 @@ def render(band, p, card):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--bands", default=",".join(ORDER))
-    ap.add_argument("--model", default="sonnet")
+    ap.add_argument("--model", default=None, help="model name in coach/models.yaml (default: routes.persona_write)")
     ap.add_argument("--force", action="store_true", help="regenerate even if inputs are unchanged")
     a = ap.parse_args()
     for b in a.bands.split(","):

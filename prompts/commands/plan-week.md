@@ -1,0 +1,13 @@
+---
+name: plan-week
+description: "갭·백로그·지난주 로그로 이번 주 트랙 2~3개와 일별 할 일을 정한다."
+inputs: "{PROFILE} = 지원자 프로필 폴더 (기본 profiles/me, 환경변수 COACH_PROFILE)"
+---
+# /plan-week
+
+1. 최근 `{PROFILE}/log/*.md` 2개, `{PROFILE}/todo-backlog.md`, 최신 `{PROFILE}/reports/*.md`(있으면)를 읽는다.
+2. 갭 상위 항목은 `/gap`과 같은 방식으로 계산하되 요약만 쓴다.
+3. tutor 서브에이전트에 넘겨 트랙 2~3개를 받는다. 각 트랙에는 근거, 완료 기준, 일별 할 일이 있어야 한다.
+4. `{PROFILE}/log/YYYY-Www.md`가 없으면 아래 템플릿으로 만든다(계획 칸만 채움).
+   - `## 이번 주 트랙` / `## 일별 기록 (사용자)` / `## 회고 (사용자)`
+5. 사용자가 실제로 한 기록 칸은 비워 둔다.

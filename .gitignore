@@ -5,3 +5,13 @@ data/jobs.sqlite
 data/crawl.log
 __pycache__/
 *.pyc
+# 개인 프로필 데이터는 엔진 저장소에서 분리 (각 프로필 폴더가 자체 git 저장소)
+profiles/*
+!profiles/_template/
+!profiles/README.md
+data/packs/
+data/*.out
+data/*.log
+data/jobs.sqlite-*
+out/
+data/cache/

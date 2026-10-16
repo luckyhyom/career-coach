@@ -155,7 +155,9 @@ def close_missing(con, source: str, present_ids, company: str = None) -> int:
     ids = [r[0] for r in con.execute(q, (source, company) if company else (source,))]
     gone = [i for i in ids if i not in present]
     # guard: an empty or collapsed listing is far more likely a fetch/parse problem than a mass closing
-    if ids and (not present or len(gone) > max(2, 0.5 * len(ids))):
+    # rule: empty listing -> never close; boards with >=4 open postings -> refuse if more than half would close.
+    # Tiny boards (<4 open) may close normally, otherwise a real closing there could never be recorded.
+    if ids and (not present or (len(ids) >= 4 and len(gone) > 0.5 * len(ids))):
         import logging
         logging.getLogger("db").warning("suspicious listing for %s %s: %d open, %d would close -> not closing",
                                         source, company or "", len(ids), len(gone))

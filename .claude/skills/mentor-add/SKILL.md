@@ -2,11 +2,4 @@
 name: mentor-add
 description: "멘토 자료(url 또는 메모)를 원칙 카드로 요약해 mentors/에 추가한다. 사용: /mentor-add <url|메모>"
 ---
-# /mentor-add
-
-1. url이면 WebFetch로 내용을 가져온다. 영상이라 내용을 얻을 수 없으면 사용자에게 요약 메모를 요청한다.
-2. 원칙 3~7개를 `mentors/principles.yaml` 항목으로 추가한다.
-   - 필드: id, source, source_type(direct_advice|published), evidence(링크·타임스탬프·위치), axis(AXES 또는 resume_format/job_search), criterion, applies_when{stages,roles,years}, good_example, bad_example, check.
-   - 좋은 예와 나쁜 예는 원문에 근거가 있을 때만 쓴다. 없으면 빈 문자열로 둔다.
-3. 원문에 없는 내용은 만들지 않는다. 그 사람이 직접 말한 것처럼 말투를 흉내 내지 않는다.
-4. 같은 source의 기존 원칙과 중복되면 병합한다. `mentors/_index.md` 목록을 갱신한다. 사람이 읽는 md 카드는 선택이고, **principles.yaml이 정본**이다.
+`prompts/commands/mentor-add.md`를 읽고 그대로 수행한다. `{PROFILE}`은 환경변수 COACH_PROFILE(없으면 `profiles/me`)로 치환한다. 인자: $ARGUMENTS

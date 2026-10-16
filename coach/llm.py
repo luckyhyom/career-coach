@@ -20,8 +20,17 @@ ROOT = Path(__file__).resolve().parent.parent
 CLAUDE = str(Path.home() / ".local" / "bin" / "claude")
 
 
+def _config():
+    return yaml.safe_load((ROOT / "coach" / "models.yaml").read_text("utf-8"))
+
+
 def load_models():
-    return yaml.safe_load((ROOT / "coach" / "models.yaml").read_text("utf-8"))["models"]
+    return _config()["models"]
+
+
+def route(task: str) -> str:
+    """Model name for a task (coach/models.yaml routes). Env override: COACH_MODEL_<TASK>=name."""
+    return os.environ.get(f"COACH_MODEL_{task.upper()}") or _config()["routes"][task]
 
 
 def _env():
@@ -102,6 +111,9 @@ PROVIDERS = {"claude_cli": _claude_cli, "ollama": _ollama, "openai_compat": _ope
 
 
 def complete(name, system, user, schema=None):
+    """name = model name in models.yaml, or 'route:<task>' to use the routing table."""
+    if name.startswith("route:"):
+        name = route(name.split(":", 1)[1])
     cfg = load_models()[name]
     t0 = time.time()
     text, data, usage, cost = PROVIDERS[cfg["provider"]](cfg, system, user, schema)

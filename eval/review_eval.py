@@ -28,7 +28,7 @@ from coach.llm import complete
 from coach.review import review
 
 ROOT = Path(__file__).resolve().parent.parent
-JUDGE = "claude-sonnet"
+JUDGE = "route:judge"  # coach/models.yaml routes.judge
 JUDGE_SCHEMA = {
     "type": "object",
     "properties": {

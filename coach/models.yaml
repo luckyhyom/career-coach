@@ -1,6 +1,13 @@
 # LLM 프로바이더 설정. 비교 평가(eval/review_eval.py)와 서비스 라우팅에서 같은 이름으로 쓴다.
 # price_per_mtok: 공식 요금표에서 직접 확인해 넣을 것(USD / 100만 토큰). 비워 두면 비용은 토큰 수만 기록.
 # claude_cli는 CLI가 total_cost_usd를 돌려주므로 가격 입력 불필요.
+# 용도별 모델 지정. 모델을 바꾸려면 여기만 고친다 (코드 수정 불필요).
+routes:
+  insight_extract: claude-haiku     # 공고 1건 정밀 해석 (공고당 1회, 결과 캐시)
+  persona_write:   claude-sonnet    # 단계별 페르소나 카드 (입력 해시가 바뀔 때만)
+  candidate_parse: claude-haiku     # 이력서 → 후보자 축 프로필 (이력서 해시당 1회)
+  review:          claude-haiku     # 이력서 리뷰 본체
+  judge:           claude-sonnet    # 평가용 심판 (eval)
 models:
   claude-sonnet:   {provider: claude_cli, model: sonnet}
   claude-haiku:    {provider: claude_cli, model: haiku}

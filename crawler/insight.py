@@ -100,13 +100,34 @@ INSTRUCTION = """너는 채용공고 분석가다. 입력된 공고 하나를 �
 """
 
 
+MAX_CHARS = 20000
+BILINGUAL = re.compile(r"English (?:text )?will follow (?:the )?Korean(?: text)?|English version (?:is )?below|\[English\]", re.I)
+EN_START = re.compile(r"\n\s*(?:Company Introduction|About Coupang|Role Overview|Key Responsibilities|What You Will Do)\b", re.I)
+
+
+def strip_bilingual(desc: str) -> str:
+    """Korean+English postings repeat everything; keep the Korean half."""
+    if not desc or not BILINGUAL.search(desc):
+        return desc
+    end = BILINGUAL.search(desc).end()
+    after = desc[end:]
+    # English section = first English heading that comes after some Korean body text (any length)
+    for m in EN_START.finditer(after):
+        if re.search(r"[가-힣]", after[:m.start()]):
+            return desc[: end + m.start()]
+    return desc
+
+
 def clean_text(row) -> str:
+    row = dict(row)
+    row["description"] = strip_bilingual(row.get("description") or "")
     parts = [f"[제목] {row['title']}", f"[회사] {row['company']}", f"[경력] {row['experience'] or ''}",
              "[본문]\n" + (row["description"] or ""), "[자격요건]\n" + (row["qualifications"] or ""),
              "[우대사항]\n" + (row["preferred"] or ""), "[전형] " + " / ".join(json.loads(row["steps"] or "[]"))]
     text = "\n".join(parts)
     text = "\n".join(l for l in text.splitlines() if l.strip() and not BOILERPLATE.search(l))
-    return text[:9000]
+    return text[:MAX_CHARS]
+
 
 
 def _norm(s: str) -> str:
@@ -139,17 +160,16 @@ def validate(ins: dict, text: str) -> dict:
 
 
 def analyze(row) -> dict:
+    from coach.llm import complete  # provider-agnostic (coach/models.yaml routes.insight_extract)
     text = clean_text(row)
-    proc = subprocess.run(
-        [CLAUDE, "-p", INSTRUCTION, "--model", "haiku", "--output-format", "json", "--json-schema", json.dumps(SCHEMA),
-         "--tools", "", "--strict-mcp-config", "--no-session-persistence"],
-        input=text, capture_output=True, text=True, timeout=300, cwd="/tmp",
-    )
-    out = json.loads(proc.stdout)
-    if out.get("is_error") or not out.get("structured_output"):
-        raise RuntimeError(f"claude error: {out.get('subtype')} {str(out.get('result'))[:200]}")
-    ins = validate(out["structured_output"], text)
-    ins["_cost_usd"] = out.get("total_cost_usd")
+    out = complete("route:insight_extract", INSTRUCTION, text, SCHEMA)
+    if not out["json"]:
+        raise RuntimeError(f"no structured output from {out['model']}: {str(out['text'])[:200]}")
+    ins = validate(out["json"], text)
+    ins["_cost_usd"] = out["cost_usd"]
+    ins["_model"] = out["model"]
+    ins["_input_chars"] = len(text)
+    ins["_truncated"] = len(text) >= MAX_CHARS
     return ins
 
 
