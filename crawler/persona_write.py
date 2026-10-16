@@ -8,11 +8,16 @@ uncited/invalid ones are dropped. Rendering to markdown is deterministic.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
+from . import db
 from .insight import AXES, CLAUDE
+
+WRITER_VERSION = "w2"  # bump when INSTRUCTION/SCHEMA/validation changes -> forces regeneration
 from .persona_build import BANDS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,15 +65,16 @@ INSTRUCTION = """너는 채용 데이터로 면접관 페르소나를 만드는 
 - evidence_bar는 이 단계 맥락에 맞게 구체적으로 쓴다(예: 초기=직접 끝까지 만든 범위, 빅테크=지표·용량추정). 2점=행동만, 3점=결과 수치, 4점=수치+측정 방법+본인 역할, 5점=4+의사결정 근거·트레이드오프.
 - contrast는 입력의 neighbors lift 수치를 인용해 "이 단계가 무엇을 더/덜 보는지" 쓴다.
 - confidence가 low면 one_liner 끝에 "(표본 적음)"을 붙인다.
+- fallback 값이 있으면 이 단계 고유 데이터가 아니라 전체 시장 기준이다. one_liner 앞에 "[대체: 전체 시장 기준]"을 붙이고 단계 고유 특성을 주장하지 않는다.
 - 가중치는 회사 균형(회사마다 같은 무게)이다. top_company_share가 0.4 이상이면 context에 "특정 회사 비중이 높아 일반화 주의"를 쓰고, 특정 회사명을 단계 특성처럼 쓰지 않는다.
 - 한국어로 간결하게."""
 
 
 def compact(p: dict, neighbors: dict) -> dict:
-    keep = ["band", "postings", "companies", "confidence", "top_company_share", "axis_weight", "lift", "distinctive_axes", "weak_axes",
+    keep = ["band", "fallback", "postings", "companies", "confidence", "top_company_share", "axis_weight", "lift", "distinctive_axes", "weak_axes",
             "process_pct", "min_years_median", "scope", "product_maturity", "hiring_reason", "domains", "role_types",
             "stack_flexibility"]
-    c = {k: p[k] for k in keep}
+    c = {k: p.get(k) for k in keep}
     c["axis_quotes"] = {a: [{"q": q["quote"][:140], "uid": q["uid"]} for q in qs[:5]] for a, qs in p["axis_quotes"].items()}
     c["red_flags"] = [{"flag": f["flag"], "uid": f["uid"]} for f in p["red_flags"][:15]]
     c["team_problems"] = [{"t": t["text"][:160], "uid": t["uid"]} for t in p["team_problems"][:12]]
@@ -85,10 +91,60 @@ def valid_uids(p: dict) -> set:
     return s
 
 
-def write(band: str, model: str):
+def support_index():
+    """uid -> {'axes': set(axis), 'flags': bool, 'work': bool} from stored insights (what each posting actually says)."""
+    con = db.connect()
+    idx = {}
+    for uid, data in con.execute("SELECT uid, data FROM job_insights"):
+        ins = json.loads(data)
+        idx[uid] = {"axes": {i["axis"] for i in ins["items"]}, "flags": bool(ins["red_flags"]),
+                    "work": any(i["kind"] == "work" for i in ins["items"])}
+    return idx
+
+
+def check_support(card: dict, p: dict) -> dict:
+    """Existence AND support: a cited uid must contain an item on that axis (or a red flag / work item)."""
+    idx = support_index()
+    quotes = {_n(q["quote"]) for qs in list(p["axis_quotes"].values()) + list(p["nice_quotes"].values()) for q in qs}
+    stats = {"axis_cites_dropped": 0, "axes_removed": [], "flags_dropped": 0, "questions_dropped": 0, "unverified_quotes": 0}
+    kept_axes = []
+    for a in card["axes"]:
+        good = [u for u in a["cite_uids"] if a["axis"] in idx.get(u, {}).get("axes", set())]
+        stats["axis_cites_dropped"] += len(a["cite_uids"]) - len(good)
+        a["cite_uids"] = good
+        # quoted phrases inside the prose must come from the profile's verbatim quotes
+        for q in re.findall(r'["“]([^"”]{8,})["”]', a["what_they_look_for"]):
+            if not any(_n(q)[:40] in qq for qq in quotes):
+                stats["unverified_quotes"] += 1
+                a["what_they_look_for"] = a["what_they_look_for"].replace(q, q + " [인용 미검증]")
+        if good:
+            kept_axes.append(a)
+        else:
+            stats["axes_removed"].append(a["axis"])
+    card["axes"] = kept_axes
+    before = len(card["red_flags"])
+    card["red_flags"] = [f for f in card["red_flags"] if any(idx.get(u, {}).get("flags") for u in f["cite_uids"])]
+    stats["flags_dropped"] = before - len(card["red_flags"])
+    before = len(card["question_bank"])
+    card["question_bank"] = [q for q in card["question_bank"] if idx.get(q["from_uid"], {}).get("work")]
+    stats["questions_dropped"] = before - len(card["question_bank"])
+    return stats
+
+
+def _n(s):
+    return re.sub(r"\s+", "", s or "").lower()
+
+
+MIN_COMPANIES = 3
+
+
+def write(band: str, model: str, force: bool = False):
     p = json.loads((DATA / f"{band}.json").read_text("utf-8"))
-    if p["postings"] == 0:
-        return None
+    if p["companies"] < MIN_COMPANIES:
+        # not enough independent evidence for a stage-specific persona -> fall back to the whole-market profile
+        base = json.loads((DATA / "overall.json").read_text("utf-8"))
+        base.update(band=band, fallback=f"overall (이 단계 근거 {p['companies']}개사 < {MIN_COMPANIES})")
+        p = base
     idx = ORDER.index(band)
     neighbors = {}
     for nb in ORDER[max(0, idx - 1): idx + 2]:
@@ -96,22 +152,27 @@ def write(band: str, model: str):
             q = json.loads((DATA / f"{nb}.json").read_text("utf-8"))
             neighbors[nb] = {"postings": q["postings"], "lift": q["lift"], "process_pct": q["process_pct"]}
     payload = json.dumps(compact(p, neighbors), ensure_ascii=False)
+    key = hashlib.sha1((payload + INSTRUCTION + json.dumps(SCHEMA) + model + WRITER_VERSION).encode()).hexdigest()[:16]
+    card_path = DATA / f"{band}.card.json"
+    if not force and card_path.exists():
+        old = json.loads(card_path.read_text("utf-8"))
+        if old.get("_meta", {}).get("input_hash") == key:
+            render(band, p, old)  # inputs unchanged -> no LLM call
+            return {"skipped": "unchanged", "input_hash": key}
     proc = subprocess.run([CLAUDE, "-p", INSTRUCTION, "--model", model, "--output-format", "json", "--json-schema",
                            json.dumps(SCHEMA), "--tools", "", "--strict-mcp-config", "--no-session-persistence"],
                           input=payload, capture_output=True, text=True, timeout=600, cwd="/tmp")
     out = json.loads(proc.stdout)
     card = out["structured_output"]
     ok = valid_uids(p)
-    dropped = 0
-    for a in card["axes"]:
+    for a in card["axes"]:  # existence: uid belongs to this band's evidence
         a["cite_uids"] = [u for u in a["cite_uids"] if u in ok]
     for f in card["red_flags"]:
         f["cite_uids"] = [u for u in f["cite_uids"] if u in ok]
-    before = len(card["red_flags"]) + len(card["question_bank"])
-    card["red_flags"] = [f for f in card["red_flags"] if f["cite_uids"]]
     card["question_bank"] = [q for q in card["question_bank"] if q["from_uid"] in ok]
-    dropped = before - len(card["red_flags"]) - len(card["question_bank"])
-    card["_meta"] = {"cost_usd": out.get("total_cost_usd"), "dropped_uncited": dropped, "model": model}
+    support = check_support(card, p)  # support: the cited posting actually says that
+    card["_meta"] = {"cost_usd": out.get("total_cost_usd"), "model": model, "input_hash": key,
+                     "writer_version": WRITER_VERSION, "support_check": support}
     (DATA / f"{band}.card.json").write_text(json.dumps(card, ensure_ascii=False, indent=1), "utf-8")
     render(band, p, card)
     return card["_meta"]
@@ -120,10 +181,12 @@ def write(band: str, model: str):
 def render(band, p, card):
     fmt = lambda axes: ", ".join("%s ×%s" % (a, p["lift"][a]) for a in axes) or "없음"
     dist, weak = fmt(p["distinctive_axes"]), fmt(p["weak_axes"])
-    L = [f"# {LABEL[band]} 면접관",
+    L = [f"# {LABEL[band]} 면접관" + (" — ⚠️ 대체 카드(전체 시장 기준)" if p.get("fallback") else ""),
          f"> {card['one_liner']}", "",
          f"- 근거: 공고 **{p['postings']}건 / {p['companies']}개사** (회사 균형 가중, 최다 회사 비중 {int(p.get('top_company_share',0)*100)}%), 신뢰도 **{p['confidence']}** (자동 생성 — `crawler/persona_build.py` → `persona_write.py`)",
          f"- 성격: 실존 회사·인물이 아닌 \"이 단계 회사 면접관의 일반적 관점\". 원본 수치: `data/personas/{band}.json`",
+         f"- 모집단: {p.get('population_note', '')} / 게시일 티어 {p.get('tiers', {})}",
+         f"- 근거 검증: {card.get('_meta', {}).get('support_check', {})} (축 근거가 모두 탈락하면 해당 축은 카드에서 제외)",
          f"- 특징 축(lift≥1.2): {dist}  /  덜 보는 축(≤0.8): {weak}",
          "", "## 맥락  `[통계]`", card["context"], "", "## 평가 축과 이 단계의 증거 기준", ""]
     for a in card["axes"]:
@@ -147,6 +210,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--bands", default=",".join(ORDER))
     ap.add_argument("--model", default="sonnet")
+    ap.add_argument("--force", action="store_true", help="regenerate even if inputs are unchanged")
     a = ap.parse_args()
     for b in a.bands.split(","):
-        print(b, write(b, a.model))
+        print(b, write(b, a.model, a.force))

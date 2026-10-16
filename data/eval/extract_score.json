@@ -24,11 +24,11 @@
    1
   ],
   [
-   "결제/핀테크",
+   "MySQL",
    1
   ],
   [
-   "MySQL",
+   "JavaScript",
    1
   ],
   [
@@ -36,7 +36,7 @@
    1
   ],
   [
-   "JavaScript",
+   "결제/핀테크",
    1
   ],
   [
@@ -61,5 +61,7 @@
  "labelers": {
   "claude (2026-10-16, 매칭 문맥 검토 기반; 사용자 검수 전)": 20,
   "claude (2026-10-16, 매칭 문맥 검토 기반; 사용자 검수 전) / 경력 라벨 원문 재확인": 10
- }
+ },
+ "independent_labels": 0,
+ "status": "preliminary — labels by Claude, rules tuned on the same sample; needs user-verified / held-out labels"
 }

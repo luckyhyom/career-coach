@@ -64,19 +64,19 @@ def cosine(a, b):
 
 
 def load():
+    """Same population as stats (crawler/population.py), restricted to analyzed postings."""
+    from . import population as P
     con = db.connect()
     stage_of = company_stage_map()
-    rf = RoleFilter([], [])
+    cfg = P.config()
+    rows = P.select(con, cfg["persona_view"], require_insight=True, cfg=cfg)
+    ins_of = {u: d for u, d in con.execute("SELECT uid, data FROM job_insights")}
+    load.population = P.describe(rows, cfg["persona_view"], cfg)
     recs = []
-    for r in con.execute("SELECT j.*, i.data AS ins FROM jobs j JOIN job_insights i ON i.uid=j.uid").fetchall():
-        if ABROAD.search(r["location"] or "") or rf.excluded(r["title"]):
-            continue
-        ins = json.loads(r["ins"])
-        stage, src = stage_of.get(_norm(r["company"])), "companies.yaml"
-        if not stage or stage == "unknown":
-            hint = (ins.get("stage_hint") or {}).get("value", "unknown")
-            stage, src = (hint, "posting_hint") if hint != "unknown" else ("unknown", None)
-        recs.append({"uid": r["uid"], "company": r["company"], "title": r["title"], "ins": ins,
+    for r in rows:
+        ins = json.loads(ins_of[r["uid"]])
+        stage, src = P.resolve_stage(r["company"], ins, stage_of)
+        recs.append({"uid": r["uid"], "company": r["company"], "title": r["title"], "ins": ins, "tier": r["tier"],
                      "stage": stage, "stage_src": src, "band": band_of(stage), "vec": axis_vector(ins)})
     return recs
 
@@ -114,6 +114,8 @@ def profile(recs, overall_vec, name):
     years = [r["ins"]["seniority"]["min_years"] for r in recs if r["ins"]["seniority"]["min_years"] is not None]
     return {
         "band": name,
+        "population_note": "현재 모집 중 공고 기준(게시일 무관) — crawler/population.py",
+        "tiers": dict(Counter(r.get("tier") for r in recs)),
         "postings": n_post,
         "companies": n,
         "confidence": "high" if n >= 15 else "medium" if n >= 6 else "low",
@@ -168,6 +170,7 @@ def run():
         "similarity": sim,
         "merge_candidates": [k for k, v in sim.items() if v > 0.95],
         "unknown_companies": Counter(r["company"] for r in recs if r["band"] is None).most_common(60),
+        "population": load.population,
     }
     (OUT / "_matrix.json").write_text(json.dumps(matrix, ensure_ascii=False, indent=1), "utf-8")
     _write_md(profiles, matrix)
@@ -176,7 +179,9 @@ def run():
 
 def _write_md(profiles, m):
     ax = list(AXES)
+    pop = m["population"]
     L = [f"# 페르소나 매트릭스 (공고 {m['postings_total']}건, 단계 미확인 {m['unknown_stage_postings']}건)", "",
+         f"> 모집단: {pop['note']} — 티어 {pop['tiers']}, 조건 {pop['spec']} (통계와 동일 정의: crawler/population.py)", "",
          f"단계 판정 근거: {m['stage_resolution']}", "",
          "## 축 가중치 lift (전체 평균 = 1.0, 회사 균형 가중 + 축소추정 K=5개사)", "",
          "| 축 | " + " | ".join(f"{b} ({profiles[b]['companies']}개사/{profiles[b]['postings']}건, {profiles[b]['confidence']})" for b in BANDS) + " |",

@@ -45,7 +45,7 @@ def _greeting_queries(page):
     return (((nd or {}).get("props") or {}).get("pageProps") or {}).get("dehydratedState", {}).get("queries", [])
 
 
-def _greeting(fetcher, slug, role_filter=None):
+def _greeting(fetcher, slug, role_filter=None, due=lambda sid: True):
     """Greeting(그리팅) career site: list in __NEXT_DATA__ 'openings'; detail page only for matching titles."""
     base = f"https://{slug}.career.greetinghr.com"
     qs = _greeting_queries(fetcher.get(base, revalidate=True))
@@ -56,7 +56,7 @@ def _greeting(fetcher, slug, role_filter=None):
             continue
         oid = o.get("openingId")
         detail = ""
-        dq = _greeting_queries(fetcher.get(f"{base}/o/{oid}", revalidate=False))
+        dq = _greeting_queries(fetcher.get(f"{base}/o/{oid}", revalidate=due(f"gr:{slug}:{oid}")))
         for q in dq:
             if q.get("queryKey", [None, None])[:2] == ["career", "getOpeningById"]:
                 detail = html_to_text(((q["state"]["data"].get("data") or {}).get("openingsInfo") or {}).get("detail"))
@@ -79,14 +79,17 @@ def crawl(fetcher, con, cfg, role_filter, days, companies):
             continue
         try:
             if ats == "greeting":
-                postings = list(_greeting(fetcher, slug, role_filter))
+                due = lambda sid: db.needs_recheck(con, "ats_greeting", sid, cfg.get("recheck_days", 14))
+                postings = list(_greeting(fetcher, slug, role_filter, due))
             else:
                 postings = list((_greenhouse if ats == "greenhouse" else _lever)(fetcher, slug))
         except (ValueError, KeyError) as e:
             log.warning("%s/%s: unexpected response (%s)", ats, slug, e)
             continue
         log.info("%s (%s/%s): %d postings", c["name"], ats, slug, len(postings))
+        src = f"ats_{ats}"
         for p in postings:
+            db.touch(con, src, p["source_id"])
             if not role_filter.match(p["title"]):
                 continue
             # company boards are "open now"; keep regardless of age but record the date
@@ -99,5 +102,9 @@ def crawl(fetcher, con, cfg, role_filter, days, companies):
                 "description": p["description"], "qualifications": "", "preferred": "",
                 "source_skills": "[]", "salary": None, "steps": "[]",
             })
+        # board listing is authoritative for this company: anything missing has closed
+        n_closed = db.close_missing(con, src, [p["source_id"] for p in postings], company=c["name"])
+        if n_closed:
+            log.info("%s: closed %d", c["name"], n_closed)
         con.commit()
     return new

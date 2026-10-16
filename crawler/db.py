@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "jobs.sqlite"
@@ -64,6 +64,9 @@ def connect() -> sqlite3.Connection:
     cols = {r[1] for r in con.execute("PRAGMA table_info(jobs)")}
     if "content_hash" not in cols:  # migration: change detection
         con.execute("ALTER TABLE jobs ADD COLUMN content_hash TEXT")
+    for c, ddl in (("status", "TEXT DEFAULT 'open'"), ("closed_at", "TEXT"), ("last_checked", "TEXT")):
+        if c not in cols:  # migration: open/closed tracking and detail re-check schedule
+            con.execute(f"ALTER TABLE jobs ADD COLUMN {c} {ddl}")
     return con
 
 
@@ -86,8 +89,11 @@ def make_uid(company: str, title: str) -> str:
 def upsert_job(con: sqlite3.Connection, job: dict) -> bool:
     """Insert or update. Returns True if this is a new posting."""
     ts = now()
-    uid = make_uid(job.get("company", ""), job.get("title", ""))
+    # same site posting id = same posting, even if the title was renamed -> keep its uid (stable id)
+    same = con.execute("SELECT uid FROM jobs WHERE source=? AND source_id=?", (job["source"], str(job["source_id"]))).fetchone()
+    uid = same[0] if same else make_uid(job.get("company", ""), job.get("title", ""))
     row = con.execute("SELECT uid, source, url, also_on FROM jobs WHERE uid=?", (uid,)).fetchone()
+    job = dict(job, last_checked=ts)
     if row and row["source"] != job["source"]:
         # same posting on another site -> just remember the other URL
         also = set(json.loads(row["also_on"] or "[]"))
@@ -97,14 +103,14 @@ def upsert_job(con: sqlite3.Connection, job: dict) -> bool:
     job = dict(job, content_hash=content_hash(job))
     cols = ["source", "source_id", "url", "company", "title", "posted_at", "valid_through", "always_hiring",
             "experience", "location", "description", "qualifications", "preferred", "source_skills", "salary", "steps",
-            "content_hash"]
+            "content_hash", "last_checked"]
     vals = [job.get(c) for c in cols]
     if row:
         old = con.execute("SELECT content_hash FROM jobs WHERE uid=?", (uid,)).fetchone()[0]
         if old == job["content_hash"]:
-            con.execute("UPDATE jobs SET last_seen=? WHERE uid=?", (ts, uid))  # unchanged: no re-extract / re-analysis
+            con.execute("UPDATE jobs SET last_seen=?, last_checked=?, status='open', closed_at=NULL WHERE uid=?", (ts, ts, uid))  # unchanged
             return False
-        sets = ", ".join(f"{c}=?" for c in cols) + ", last_seen=?, extracted_at=NULL"
+        sets = ", ".join(f"{c}=?" for c in cols) + ", last_seen=?, extracted_at=NULL, status='open', closed_at=NULL"
         con.execute(f"UPDATE jobs SET {sets} WHERE uid=?", vals + [ts, uid])
         # body changed -> drop cached LLM insight so it is re-analyzed once
         try:
@@ -125,3 +131,35 @@ def mark_seen(con: sqlite3.Connection, source: str, source_id: str, matched: boo
 
 def was_seen(con: sqlite3.Connection, source: str, source_id: str) -> bool:
     return con.execute("SELECT 1 FROM seen WHERE source=? AND source_id=?", (source, str(source_id))).fetchone() is not None
+
+
+def touch(con, source: str, source_id: str) -> None:
+    """Posting seen in the current listing: keep it open and refresh last_seen."""
+    con.execute("UPDATE jobs SET last_seen=?, status='open', closed_at=NULL WHERE source=? AND source_id=?",
+                (now(), source, str(source_id)))
+
+
+def needs_recheck(con, source: str, source_id: str, days: int) -> bool:
+    r = con.execute("SELECT last_checked FROM jobs WHERE source=? AND source_id=?", (source, str(source_id))).fetchone()
+    if not r:
+        return False
+    if not r[0]:
+        return True
+    return r[0][:10] <= (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+
+
+def close_missing(con, source: str, present_ids, company: str = None) -> int:
+    """Postings of this source (and company, for per-company boards) not in the current listing -> closed."""
+    present = {str(x) for x in present_ids}
+    q = "SELECT source_id FROM jobs WHERE source=? AND COALESCE(status,'open')='open'" + (" AND company=?" if company else "")
+    ids = [r[0] for r in con.execute(q, (source, company) if company else (source,))]
+    gone = [i for i in ids if i not in present]
+    # guard: an empty or collapsed listing is far more likely a fetch/parse problem than a mass closing
+    if ids and (not present or len(gone) > max(2, 0.5 * len(ids))):
+        import logging
+        logging.getLogger("db").warning("suspicious listing for %s %s: %d open, %d would close -> not closing",
+                                        source, company or "", len(ids), len(gone))
+        return 0
+    for i in gone:
+        con.execute("UPDATE jobs SET status='closed', closed_at=? WHERE source=? AND source_id=?", (now(), source, i))
+    return len(gone)

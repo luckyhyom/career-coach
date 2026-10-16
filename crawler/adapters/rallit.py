@@ -25,15 +25,21 @@ def crawl(fetcher, con, cfg, role_filter, days):
     urls = [u for u in sitemap_locs(xml) if "/positions/" in u]
     log.info("open positions in sitemap: %d", len(urls))
     new = 0
+    recheck_days = cfg.get("recheck_days", 14)
+    present = []
     for url in urls:
         m = re.search(r"/positions/(\d+)", url)
         if not m:
             continue
         pid = m.group(1)
+        present.append(pid)
         if db.was_seen(con, SOURCE, pid):
-            con.execute("UPDATE jobs SET last_seen=? WHERE source=? AND source_id=?", (db.now(), SOURCE, pid))
-            continue
-        page = fetcher.get(url, revalidate=False)  # sitemap URL includes the slug (bare id -> 308)
+            db.touch(con, SOURCE, pid)
+            if not db.needs_recheck(con, SOURCE, pid, recheck_days):
+                continue
+            page = fetcher.get(url, revalidate=True)  # due for re-check: conditional GET, body change -> hash differs
+        else:
+            page = fetcher.get(url, revalidate=False)  # sitemap URL includes the slug (bare id -> 308)
         nd = next_data(page) if page else None
         p = (((nd or {}).get("props") or {}).get("pageProps") or {}).get("position")
         if not p:
@@ -64,4 +70,8 @@ def crawl(fetcher, con, cfg, role_filter, days):
             "steps": json.dumps(p.get("positionSteps") or [], ensure_ascii=False),
         })
         con.commit()
+    # only reached when the whole sitemap was processed (SiteAborted skips this) -> safe to close the rest
+    closed = db.close_missing(con, SOURCE, present)
+    log.info("closed (no longer in sitemap): %d", closed)
+    con.commit()
     return new

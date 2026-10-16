@@ -76,6 +76,10 @@ def score():
         "min_years_acc": round(years_ok / n, 3), "coding_test_acc": round(ct_ok / n, 3), "assignment_acc": round(as_ok / n, 3),
         "top_false_positives": fp_by.most_common(10), "top_false_negatives": fn_by.most_common(10),
         "labelers": dict(Counter(i.get("labeler") for i in items)),
+        # independent = labeled by someone other than the model that also tuned the rules
+        "independent_labels": sum(1 for i in items if not str(i.get("labeler") or "").startswith("claude")),
+        "status": "preliminary — labels by Claude, rules tuned on the same sample; needs user-verified / held-out labels"
+                  if all(str(i.get("labeler") or "").startswith("claude") for i in items) else "includes independent labels",
     }
     print(json.dumps(report, ensure_ascii=False, indent=1))
     (GOLD.parent / "extract_score.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), "utf-8")

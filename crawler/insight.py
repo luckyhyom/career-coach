@@ -113,10 +113,19 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", "", s or "").lower()
 
 
+def quote_in(q: str, nt: str) -> bool:
+    """Whole quote must appear verbatim (whitespace-insensitive). A trailing ellipsis marks allowed truncation."""
+    if not q:
+        return False
+    core = re.sub(r"(…|\.\.\.)\s*$", "", q)
+    nq = _norm(core)
+    return len(nq) >= 6 and nq in nt
+
+
 def validate(ins: dict, text: str) -> dict:
-    """Drop items/flags whose quote is not verbatim in the text. Record stats."""
+    """Drop items/flags whose quote is not verbatim in the text (full quote, not a prefix). Record stats."""
     nt = _norm(text)
-    ok = lambda q: bool(q) and _norm(q)[:60] in nt
+    ok = lambda q: quote_in(q, nt)
     items = ins.get("items", [])
     kept = [i for i in items if ok(i.get("quote"))]
     flags = [f for f in ins.get("red_flags", []) if ok(f.get("quote"))]
@@ -148,13 +157,19 @@ SCHEMA_SQL = """CREATE TABLE IF NOT EXISTS job_insights (
     uid TEXT PRIMARY KEY, version TEXT, data TEXT, created_at TEXT)"""
 
 
-def run(limit=None, uids=None, workers=4):
+def run(limit=None, uids=None, workers=4, all_postings=False):
+    """Analyze only postings in the shared population (open, Korea, backend, years cap) that lack a current insight."""
+    from . import population as P
     con = db.connect()
     con.execute(SCHEMA_SQL)
-    q = "SELECT j.* FROM jobs j LEFT JOIN job_insights i ON i.uid=j.uid AND i.version=? WHERE i.uid IS NULL"
-    rows = con.execute(q, (PROMPT_VERSION,)).fetchall()
+    done_uids = {u for (u,) in con.execute("SELECT uid FROM job_insights WHERE version=?", (PROMPT_VERSION,))}
     if uids:
-        rows = [r for r in rows if r["uid"] in set(uids)]
+        rows = [r for r in con.execute("SELECT * FROM jobs").fetchall() if r["uid"] in set(uids)]
+    elif all_postings:
+        rows = con.execute("SELECT * FROM jobs").fetchall()
+    else:
+        rows = P.select(con, "open")
+    rows = [r for r in rows if r["uid"] not in done_uids]
     rows = rows[:limit] if limit else rows
     log.info("analyzing %d postings with %d workers", len(rows), workers)
     done = cost = 0
@@ -175,6 +190,26 @@ def run(limit=None, uids=None, workers=4):
             if done % 20 == 0:
                 log.info("%d/%d done, cost so far $%.3f", done, len(rows), cost)
     log.info("finished %d, cost $%.3f", done, cost)
+
+
+def revalidate():
+    """Re-apply the (stricter) quote check to stored insights without any LLM call."""
+    con = db.connect()
+    n = dropped = 0
+    for uid, data in con.execute("SELECT uid, data FROM job_insights").fetchall():
+        row = con.execute("SELECT * FROM jobs WHERE uid=?", (uid,)).fetchone()
+        if not row:
+            continue
+        ins = json.loads(data)
+        before = len(ins["items"]) + len(ins["red_flags"])
+        cost = ins.get("_cost_usd")
+        ins = validate(ins, clean_text(row))
+        ins["_cost_usd"] = cost
+        dropped += before - len(ins["items"]) - len(ins["red_flags"])
+        con.execute("UPDATE job_insights SET data=? WHERE uid=?", (json.dumps(ins, ensure_ascii=False), uid))
+        n += 1
+    con.commit()
+    print(f"revalidated {n} insights, dropped {dropped} items/flags whose full quote is not in the posting")
 
 
 def check():
@@ -202,10 +237,16 @@ def check():
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["run", "check"])
+    ap.add_argument("cmd", choices=["run", "check", "revalidate"])
+    ap.add_argument("--all", action="store_true", help="analyze every posting, not just the shared population")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--uids")
     ap.add_argument("--workers", type=int, default=4)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    run(a.limit, a.uids.split(",") if a.uids else None, a.workers) if a.cmd == "run" else check()
+    if a.cmd == "run":
+        run(a.limit, a.uids.split(",") if a.uids else None, a.workers, a.all)
+    elif a.cmd == "revalidate":
+        revalidate()
+    else:
+        check()

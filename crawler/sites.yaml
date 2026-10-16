@@ -6,8 +6,14 @@ global:
   jitter_sec: [0.5, 1.5]     # 요청마다 추가 랜덤 대기
   max_requests_per_site: 1500
   recent_days: 30
+  population:               # 통계·정밀분석·페르소나가 공유하는 모집단 정의 (crawler/population.py)
+    recent_days: 30         # 'recent' 티어 기준
+    open_within_days: 14    # 마지막 수집 기준 N일 안에 확인된 공고만 '모집 중'
+    max_min_years: 7        # 요구 최소 경력 상한 (목표 연차 밖 공고 제외)
+    korea_only: true
+    persona_view: open      # 페르소나는 '현재 모집 중 시장' 기준 (recent는 표본이 너무 작음)
   role_include: [백엔드, backend, back-end, back end, 서버, server, node, nest, 풀스택, full stack, full-stack, fullstack,
-                 software engineer, 소프트웨어 엔지니어, sw 엔지니어, platform engineer, 플랫폼 엔지니어, api 개발, devops]
+                 software engineer, product engineer, 프로덕트 엔지니어, 소프트웨어 엔지니어, sw 엔지니어, platform engineer, 플랫폼 엔지니어, api 개발, devops]
   role_exclude: [프론트엔드 개발자, frontend engineer, front-end engineer, ios, android, 안드로이드, 디자이너, designer,
                  마케터, marketing, 영업, sales, 데이터 분석, data analyst, qa 엔지니어, 기획자, product owner, pm,
                  인턴 마케터, 회계, 인사, hr, 게임 클라이언트, 임베디드, 펌웨어,
@@ -22,9 +28,11 @@ sites:
   rallit:
     enabled: true
     note: "랠릿. robots.txt 허용, server-sitemap에 모집 중 포지션 전체"
+    recheck_days: 14          # 이미 본 상세 페이지도 14일마다 재확인(변경 감지). sitemap에서 빠지면 모집 종료
   ats:
     enabled: true
-    note: "회사 채용 페이지 공식 공개 API (Greenhouse/Lever). companies.yaml의 ats/slug 사용"
+    note: "회사 채용 페이지 공식 공개 API (Greenhouse/Lever/Greeting). companies.yaml의 ats/slug 사용"
+    recheck_days: 14          # Greeting 상세 재확인 주기. 보드 목록에서 빠지면 모집 종료
     rate_per_sec: 0.5
   saramin_api:
     enabled: true

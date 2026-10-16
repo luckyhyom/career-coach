@@ -89,46 +89,46 @@ def _summ(rows, groups):
 
 
 def run(days: int = 30, max_years: int = 7) -> dict:
+    """Stats on the shared population (crawler/population.py). `open` = 현재 모집 중, `recent` = 최근 게시."""
+    from . import population as P
     con = db.connect()
     stage_of = company_stage_map()
     groups = {name: g for name, (g, _) in load_skill_patterns().items()}
-    since = (date.today() - timedelta(days=days)).isoformat()
-    # active = seen in this window (open now) and either posted recently or always-hiring
-    rows = con.execute(
-        "SELECT * FROM jobs WHERE extracted_at IS NOT NULL AND substr(last_seen,1,10) >= ? "
-        "AND (always_hiring=1 OR posted_at IS NULL OR posted_at >= ?) "
-        "AND (min_years IS NULL OR min_years <= ?)",
-        (since, since, max_years),
-    ).fetchall()
-    # Korea-based positions only (company boards like Coupang/Flex list global roles)
-    abroad = re.compile(r"usa|united states|india|bengaluru|hyderabad|singapore|china|shanghai|taiwan|taipei|japan|tokyo|"
-                        r"seattle|mountain view|new york|nyc|london|remote - us|vietnam|hanoi", re.I)
-    rows = [r for r in rows if not abroad.search(r["location"] or "")]
-    rf = RoleFilter([], [])
-    rows = [r for r in rows if not rf.excluded(r["title"])]
+    cfg = P.config()
+    rows = [r for r in P.select(con, "open", cfg=cfg) if r.get("extracted_at")]
+    recent_rows = [r for r in rows if r["tier"] == "recent"]
     by_stage = defaultdict(list)
     unknown = Counter()
+    ins_of = {u: json.loads(d) for u, d in con.execute("SELECT uid, data FROM job_insights")} if \
+        con.execute("SELECT name FROM sqlite_master WHERE name='job_insights'").fetchone() else {}
     for r in rows:
-        st = stage_of.get(_norm(r["company"]), "unknown")
+        st, _ = P.resolve_stage(r["company"], ins_of.get(r["uid"]), stage_of)
         by_stage[st].append(r)
         if st == "unknown":
             unknown[r["company"]] += 1
     OUT.mkdir(parents=True, exist_ok=True)
     overall = _summ(rows, groups)
+    overall["population"] = P.describe(rows, "open", cfg)
     overall["by_source"] = dict(Counter(r["source"] for r in rows))
     overall["by_stage"] = {s: len(by_stage.get(s, [])) for s in STAGES}
     overall["unclassified_companies"] = unknown.most_common(50)
-    overall["window_days"] = days
+    overall["window_days"] = cfg["recent_days"]
     overall["generated"] = date.today().isoformat()
     (OUT / "overall.json").write_text(json.dumps(overall, ensure_ascii=False, indent=1), "utf-8")
+    recent = _summ(recent_rows, groups)
+    recent["population"] = P.describe(recent_rows, "recent", cfg)
+    (OUT / "recent.json").write_text(json.dumps(recent, ensure_ascii=False, indent=1), "utf-8")
     for st in STAGES:
         (OUT / f"{st}.json").write_text(json.dumps(_summ(by_stage.get(st, []), groups), ensure_ascii=False, indent=1), "utf-8")
-    _write_summary(overall, by_stage, groups)
+    _write_summary(overall, by_stage, groups, recent)
     return overall
 
 
-def _write_summary(overall, by_stage, groups):
-    lines = [f"# 채용공고 통계 ({overall['generated']}, 최근 {overall['window_days']}일, 백엔드 계열)", "",
+def _write_summary(overall, by_stage, groups, recent):
+    pop = overall["population"]
+    lines = [f"# 채용공고 통계 ({overall['generated']}, 백엔드 계열)", "",
+             f"> 모집단: **현재 모집 중 {pop['postings']}건** (게시일 티어 {pop['tiers']}). {pop['note']}.",
+             f"> 최근 {overall['window_days']}일 신규 게시만 보면 **{recent['postings']}건** — 표본이 작아 동향 해석은 참고만. 조건: {pop['spec']}", "",
              f"- 공고 수: **{overall['postings']}**  · 출처: {overall['by_source']}",
              f"- 코딩테스트 언급 {overall['coding_test_pct']}% · 과제 언급 {overall['assignment_pct']}%",
              f"- 최소 경력 분포(년): {overall['min_years_dist']}", "",
