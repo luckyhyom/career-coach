@@ -1,0 +1,39 @@
+# 회사 -> 단계(stage). stats.py가 공고를 단계별로 묶을 때 사용.
+# stage: seed | series_a | series_b | series_c_plus | pre_ipo_unicorn | listed_mid | enterprise | big_tech | foreign | si_agency | unknown
+# verified: false 는 초기 추정값 — 투자/상장 뉴스로 확인 후 true로 바꾸고 source에 링크를 남길 것.
+# ats/slug 가 있으면 crawler가 회사 채용 페이지(공식 공개 API)를 직접 수집한다.
+companies:
+  - {name: 네이버, aliases: [NAVER, 네이버클라우드, 네이버웹툰], stage: big_tech, verified: false}
+  - {name: 카카오, aliases: [Kakao, 카카오뱅크, 카카오엔터프라이즈], stage: big_tech, verified: false}
+  - {name: 라인, aliases: [LINE, 라인플러스, LY], stage: big_tech, verified: false}
+  - {name: 쿠팡, aliases: [Coupang], stage: big_tech, verified: false, ats: greenhouse, slug: coupang}
+  - {name: 우아한형제들, aliases: [배달의민족, Woowa Brothers], stage: big_tech, verified: false}
+  - {name: 비바리퍼블리카, aliases: [토스, Toss, 토스뱅크, 토스페이먼츠, 토스증권], stage: pre_ipo_unicorn, verified: false}
+  - {name: 당근, aliases: [당근마켓, Daangn, Karrot], stage: pre_ipo_unicorn, verified: false, ats: greenhouse, slug: daangn}
+  - {name: 야놀자, aliases: [Yanolja, 놀유니버스], stage: pre_ipo_unicorn, verified: false}
+  - {name: 무신사, aliases: [MUSINSA], stage: pre_ipo_unicorn, verified: false, ats: greeting, slug: musinsa}
+  - {name: 컬리, aliases: [Kurly, 마켓컬리], stage: pre_ipo_unicorn, verified: false, ats: greeting, slug: kurly}
+  - {name: 버킷플레이스, aliases: [오늘의집, Bucketplace], stage: pre_ipo_unicorn, verified: false}
+  - {name: 하이퍼커넥트, aliases: [Hyperconnect], stage: foreign, verified: false}  # lever slug 'hyperconnect' 0건 — 채용 페이지 확인 필요
+  - {name: 센드버드, aliases: [Sendbird], stage: series_c_plus, verified: false, ats: greenhouse, slug: sendbird}
+  - {name: 몰로코, aliases: [Moloco], stage: foreign, verified: false, ats: greenhouse, slug: moloco}
+  - {name: 데브시스터즈, aliases: [Devsisters], stage: listed_mid, verified: false}
+  - {name: 크래프톤, aliases: [KRAFTON], stage: enterprise, verified: false, ats: greenhouse, slug: krafton}
+  - {name: 넥슨, aliases: [NEXON, 넥슨코리아], stage: enterprise, verified: false}
+  - {name: 엔씨소프트, aliases: [NCSOFT], stage: enterprise, verified: false}
+  - {name: 삼성전자, aliases: [Samsung], stage: enterprise, verified: false}
+  - {name: LG전자, aliases: [LG Electronics], stage: enterprise, verified: false}
+  - {name: 현대오토에버, aliases: [Hyundai AutoEver], stage: enterprise, verified: false}
+  - {name: SK플래닛, aliases: [], stage: enterprise, verified: false}
+  - {name: 리디, aliases: [RIDI, 리디북스], stage: pre_ipo_unicorn, verified: false}
+  - {name: 직방, aliases: [Zigbang], stage: series_c_plus, verified: false, ats: greeting, slug: zigbang}
+  - {name: 뱅크샐러드, aliases: [Banksalad, 레이니스트], stage: series_c_plus, verified: false}
+  - {name: 핵클, aliases: [Hackle], stage: series_a, verified: false}
+  # 사용자 이력 관련 (참고용)
+  # probe_boards로 찾은 채용 보드 (2026-10-16). stage는 추정치 — 확인 필요
+  - {name: 마이리얼트립, aliases: [MyRealTrip], stage: series_c_plus, verified: false, ats: greeting, slug: myrealtrip}
+  - {name: 버즈빌, aliases: [Buzzvil], stage: series_c_plus, verified: false, ats: greeting, slug: buzzvil}
+  - {name: CJ올리브영, aliases: [올리브영, Olive Young], stage: enterprise, verified: false, ats: greeting, slug: oliveyoung}
+  - {name: 플렉스, aliases: [flex, 플렉스코리아], stage: series_b, verified: false, ats: greenhouse, slug: flex}
+  - {name: 카카오페이, aliases: [KakaoPay], stage: big_tech, verified: false, ats: greeting, slug: kakaopay}
+  - {name: 카카오모빌리티, aliases: [Kakao Mobility], stage: big_tech, verified: false, ats: greeting, slug: kakaomobility}

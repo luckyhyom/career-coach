@@ -1,0 +1,7 @@
+.venv/
+.env
+data/raw/
+data/jobs.sqlite
+data/crawl.log
+__pycache__/
+*.pyc

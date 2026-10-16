@@ -1,0 +1,53 @@
+# 탐색 사이트 목록. 각 사이트는 robots.txt / 접근 정책을 확인한 뒤 enabled를 정했다 (2026-10-16 점검).
+# 봇 차단(Cloudflare/CloudFront 403, 챌린지)이 걸린 사이트는 우회하지 않고 비활성화한다.
+global:
+  user_agent: "career-coach-personal/0.1 (personal job research; +mailto:{contact})"
+  rate_per_sec: 0.3          # 도메인당 약 3.3초에 1건
+  jitter_sec: [0.5, 1.5]     # 요청마다 추가 랜덤 대기
+  max_requests_per_site: 1500
+  recent_days: 30
+  role_include: [백엔드, backend, back-end, back end, 서버, server, node, nest, 풀스택, full stack, full-stack, fullstack,
+                 software engineer, 소프트웨어 엔지니어, sw 엔지니어, platform engineer, 플랫폼 엔지니어, api 개발, devops]
+  role_exclude: [프론트엔드 개발자, frontend engineer, front-end engineer, ios, android, 안드로이드, 디자이너, designer,
+                 마케터, marketing, 영업, sales, 데이터 분석, data analyst, qa 엔지니어, 기획자, product owner, pm,
+                 인턴 마케터, 회계, 인사, hr, 게임 클라이언트, 임베디드, 펌웨어,
+                 보안 엔지니어, security engineer, ai 개발자, ai개발자, ai engineer, 머신러닝, machine learning, ml engineer,
+                 data engineer, 데이터 엔지니어, data scientist, 리서처, researcher]
+
+sites:
+  remember:
+    enabled: true
+    note: "리멤버 커리어. robots.txt가 /job/ 허용, 상세에 schema.org JobPosting. 2026-10-16 sitemap CDN이 403 → 매 회차 1~2건만 시도하고 차단 시 즉시 중단(우회 안 함)"
+    stop_after_old: 150       # 30일보다 오래된 공고가 연속 N건이면 중단 (id 내림차순 순회)
+  rallit:
+    enabled: true
+    note: "랠릿. robots.txt 허용, server-sitemap에 모집 중 포지션 전체"
+  ats:
+    enabled: true
+    note: "회사 채용 페이지 공식 공개 API (Greenhouse/Lever). companies.yaml의 ats/slug 사용"
+    rate_per_sec: 0.5
+  saramin_api:
+    enabled: true
+    note: "사람인 오픈 API (공식). .env에 SARAMIN_ACCESS_KEY 필요 — 없으면 자동 건너뜀"
+    keywords: "백엔드"
+  worknet_api:
+    enabled: false
+    note: "고용24(워크넷) 오픈 API. 키 발급 후 어댑터 추가 예정"
+  jobkorea:
+    enabled: false
+    note: "robots.txt상 공고 페이지는 허용이나 sitemap에 공고 URL이 없어 목록 확보 방법 검토 필요"
+  wanted:
+    enabled: false
+    note: "원티드. 자동 요청이 CloudFront 403으로 차단됨 → 우회하지 않음. 공고 URL을 /job-fit에 직접 붙여넣어 사용"
+  jumpit:
+    enabled: false
+    note: "점핏. sitemap 비어 있고 API 도메인이 403 → 비활성"
+  rocketpunch:
+    enabled: false
+    note: "로켓펀치. Cloudflare 챌린지 → 비활성"
+  programmers:
+    enabled: false
+    note: "프로그래머스 커리어. 접속 불가(연결 실패) — 추후 재점검"
+  linkedin:
+    enabled: false
+    note: "이용약관상 스크래핑 금지 — 사용하지 않음"
