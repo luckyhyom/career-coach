@@ -25,7 +25,7 @@ from .stats import company_stage_map
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "personas"
-K = 15
+K = 5          # shrinkage strength, in *companies*
 WEIGHT = {"must": 1.0, "work": 0.7, "nice": 0.5}
 BANDS = {
     "early": {"seed", "series_a"},
@@ -81,9 +81,17 @@ def load():
     return recs
 
 
+def company_balanced(recs):
+    """Average per company first, then across companies, so one heavy poster can't define a band."""
+    by_co = defaultdict(list)
+    for r in recs:
+        by_co[r["company"]].append(r["vec"])
+    return mean_vec([mean_vec(v) for v in by_co.values()]), len(by_co)
+
+
 def profile(recs, overall_vec, name):
-    n = len(recs)
-    raw = mean_vec([r["vec"] for r in recs])
+    n_post = len(recs)
+    raw, n = company_balanced(recs)  # n = number of companies (effective sample)
     shrunk = {a: (n / (n + K)) * raw[a] + (K / (n + K)) * overall_vec[a] for a in AXES}
     lift = {a: round(shrunk[a] / overall_vec[a], 2) if overall_vec[a] else None for a in AXES}
 
@@ -106,9 +114,11 @@ def profile(recs, overall_vec, name):
     years = [r["ins"]["seniority"]["min_years"] for r in recs if r["ins"]["seniority"]["min_years"] is not None]
     return {
         "band": name,
-        "postings": n,
-        "companies": len({r["company"] for r in recs}),
-        "confidence": "high" if n >= 40 else "medium" if n >= K else "low",
+        "postings": n_post,
+        "companies": n,
+        "confidence": "high" if n >= 15 else "medium" if n >= 6 else "low",
+        "weighting": "company-balanced (회사별 평균 후 회사 간 평균), shrinkage K=5 companies",
+        "top_company_share": round(max(Counter(r["company"] for r in recs).values()) / n_post, 2) if n_post else 0,
         "axis_weight_raw": {a: round(raw[a], 3) for a in AXES},
         "axis_weight": {a: round(shrunk[a], 3) for a in AXES},
         "lift": lift,
@@ -118,7 +128,7 @@ def profile(recs, overall_vec, name):
         "nice_quotes": {a: quotes(a, ("nice",), 3) for a in AXES},
         "red_flags": [{"flag": f["flag"], "quote": f["quote"], "uid": r["uid"], "company": r["company"]}
                       for r in recs for f in r["ins"]["red_flags"]][:25],
-        "process_pct": {k: round(100 * v / n, 1) for k, v in proc.items()} if n else {},
+        "process_pct": {k: round(100 * v / n_post, 1) for k, v in proc.items()} if n_post else {},
         "min_years_median": statistics.median(years) if years else None,
         "scope": dict(Counter(r["ins"]["seniority"]["scope"] for r in recs)),
         "product_maturity": dict(Counter(r["ins"]["product_maturity"] for r in recs).most_common()),
@@ -136,7 +146,7 @@ def profile(recs, overall_vec, name):
 def run():
     recs = load()
     OUT.mkdir(parents=True, exist_ok=True)
-    overall = mean_vec([r["vec"] for r in recs])
+    overall, _ = company_balanced(recs)
     groups = {"overall": recs}
     for b in BANDS:
         groups[b] = [r for r in recs if r["band"] == b]
@@ -168,8 +178,8 @@ def _write_md(profiles, m):
     ax = list(AXES)
     L = [f"# 페르소나 매트릭스 (공고 {m['postings_total']}건, 단계 미확인 {m['unknown_stage_postings']}건)", "",
          f"단계 판정 근거: {m['stage_resolution']}", "",
-         "## 축 가중치 lift (전체 평균 = 1.0, 축소추정 K=15 적용)", "",
-         "| 축 | " + " | ".join(f"{b} (n={profiles[b]['postings']})" for b in BANDS) + " |",
+         "## 축 가중치 lift (전체 평균 = 1.0, 회사 균형 가중 + 축소추정 K=5개사)", "",
+         "| 축 | " + " | ".join(f"{b} ({profiles[b]['companies']}개사/{profiles[b]['postings']}건, {profiles[b]['confidence']})" for b in BANDS) + " |",
          "|---|" + "---:|" * len(BANDS)]
     for a in ax:
         L.append(f"| {a} | " + " | ".join(f"**{profiles[b]['lift'][a]}**" if (profiles[b]['lift'][a] or 0) >= 1.2

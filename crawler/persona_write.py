@@ -60,11 +60,12 @@ INSTRUCTION = """너는 채용 데이터로 면접관 페르소나를 만드는 
 - evidence_bar는 이 단계 맥락에 맞게 구체적으로 쓴다(예: 초기=직접 끝까지 만든 범위, 빅테크=지표·용량추정). 2점=행동만, 3점=결과 수치, 4점=수치+측정 방법+본인 역할, 5점=4+의사결정 근거·트레이드오프.
 - contrast는 입력의 neighbors lift 수치를 인용해 "이 단계가 무엇을 더/덜 보는지" 쓴다.
 - confidence가 low면 one_liner 끝에 "(표본 적음)"을 붙인다.
+- 가중치는 회사 균형(회사마다 같은 무게)이다. top_company_share가 0.4 이상이면 context에 "특정 회사 비중이 높아 일반화 주의"를 쓰고, 특정 회사명을 단계 특성처럼 쓰지 않는다.
 - 한국어로 간결하게."""
 
 
 def compact(p: dict, neighbors: dict) -> dict:
-    keep = ["band", "postings", "companies", "confidence", "axis_weight", "lift", "distinctive_axes", "weak_axes",
+    keep = ["band", "postings", "companies", "confidence", "top_company_share", "axis_weight", "lift", "distinctive_axes", "weak_axes",
             "process_pct", "min_years_median", "scope", "product_maturity", "hiring_reason", "domains", "role_types",
             "stack_flexibility"]
     c = {k: p[k] for k in keep}
@@ -121,7 +122,7 @@ def render(band, p, card):
     dist, weak = fmt(p["distinctive_axes"]), fmt(p["weak_axes"])
     L = [f"# {LABEL[band]} 면접관",
          f"> {card['one_liner']}", "",
-         f"- 근거: 공고 **{p['postings']}건 / {p['companies']}개사**, 신뢰도 **{p['confidence']}** (자동 생성 — `crawler/persona_build.py` → `persona_write.py`)",
+         f"- 근거: 공고 **{p['postings']}건 / {p['companies']}개사** (회사 균형 가중, 최다 회사 비중 {int(p.get('top_company_share',0)*100)}%), 신뢰도 **{p['confidence']}** (자동 생성 — `crawler/persona_build.py` → `persona_write.py`)",
          f"- 성격: 실존 회사·인물이 아닌 \"이 단계 회사 면접관의 일반적 관점\". 원본 수치: `data/personas/{band}.json`",
          f"- 특징 축(lift≥1.2): {dist}  /  덜 보는 축(≤0.8): {weak}",
          "", "## 맥락  `[통계]`", card["context"], "", "## 평가 축과 이 단계의 증거 기준", ""]
