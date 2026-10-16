@@ -1,0 +1,65 @@
+{
+ "labeled": 30,
+ "skills_precision": 0.945,
+ "skills_recall": 0.994,
+ "skills_f1": 0.969,
+ "min_years_acc": 1.0,
+ "coding_test_acc": 1.0,
+ "assignment_acc": 1.0,
+ "top_false_positives": [
+  [
+   "AI/LLM",
+   3
+  ],
+  [
+   "동시성",
+   2
+  ],
+  [
+   "알고리즘/CS",
+   1
+  ],
+  [
+   "장애 대응",
+   1
+  ],
+  [
+   "결제/핀테크",
+   1
+  ],
+  [
+   "MySQL",
+   1
+  ],
+  [
+   "Java",
+   1
+  ],
+  [
+   "JavaScript",
+   1
+  ],
+  [
+   "Python",
+   1
+  ],
+  [
+   "모니터링/APM",
+   1
+  ]
+ ],
+ "top_false_negatives": [
+  [
+   "Testing",
+   1
+  ],
+  [
+   "Docker",
+   1
+  ]
+ ],
+ "labelers": {
+  "claude (2026-10-16, 매칭 문맥 검토 기반; 사용자 검수 전)": 20,
+  "claude (2026-10-16, 매칭 문맥 검토 기반; 사용자 검수 전) / 경력 라벨 원문 재확인": 10
+ }
+}

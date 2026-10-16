@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 from pathlib import Path
@@ -11,6 +12,7 @@ import yaml
 from . import db
 from .db import _norm
 from .extract import load_skill_patterns
+from .adapters.common import RoleFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "stats"
@@ -25,6 +27,43 @@ def company_stage_map() -> dict:
         for name in [c["name"]] + c.get("aliases", []):
             m[_norm(name)] = c.get("stage", "unknown")
     return m
+
+
+REQ_LINE = re.compile(r"^\s*(?:[•\-\*·▪︎◦]|\d+[.)])?\s*(.{12,160})$")
+
+
+def _requirement_lines(rows, top_skill_names, per_field=12):
+    """Representative real requirement sentences (verbatim) with their posting uid.
+
+    Lines that mention one of the stage's top skills are preferred, deduplicated, spread across companies.
+    """
+    out = {"qualifications": [], "preferred": []}
+    for field in out:
+        seen_text, per_company = set(), Counter()
+        cands = []
+        for r in rows:
+            text = r[field] or ""
+            if field == "qualifications" and not text:
+                text = r["description"] or ""  # boards without a separate field
+            for line in text.splitlines():
+                m = REQ_LINE.match(line)
+                if not m:
+                    continue
+                s = m.group(1).strip()
+                key = re.sub(r"\W+", "", s.lower())[:60]
+                if key in seen_text:
+                    continue
+                hits = sum(1 for k in top_skill_names if k.lower() in s.lower())
+                cands.append((hits, r["company"], r["uid"], s))
+                seen_text.add(key)
+        for hits, company, uid, s in sorted(cands, key=lambda c: -c[0]):
+            if per_company[company] >= 2:
+                continue
+            out[field].append({"text": s, "uid": uid, "company": company})
+            per_company[company] += 1
+            if len(out[field]) >= per_field:
+                break
+    return out
 
 
 def _summ(rows, groups):
@@ -44,6 +83,8 @@ def _summ(rows, groups):
         "top_skills": [{"skill": s, "count": c, "pct": round(100 * c / n, 1)} for s, c in skills.most_common(40)] if n else [],
         "skills_by_group": by_group,
         "sample_uids": [r["uid"] for r in rows[:15]],
+        # verbatim requirement sentences so personas judge against real wording, not just counts
+        "sample_requirements": _requirement_lines(rows, [s for s, _ in skills.most_common(15)]) if n else {},
     }
 
 
@@ -59,6 +100,12 @@ def run(days: int = 30, max_years: int = 7) -> dict:
         "AND (min_years IS NULL OR min_years <= ?)",
         (since, since, max_years),
     ).fetchall()
+    # Korea-based positions only (company boards like Coupang/Flex list global roles)
+    abroad = re.compile(r"usa|united states|india|bengaluru|hyderabad|singapore|china|shanghai|taiwan|taipei|japan|tokyo|"
+                        r"seattle|mountain view|new york|nyc|london|remote - us|vietnam|hanoi", re.I)
+    rows = [r for r in rows if not abroad.search(r["location"] or "")]
+    rf = RoleFilter([], [])
+    rows = [r for r in rows if not rf.excluded(r["title"])]
     by_stage = defaultdict(list)
     unknown = Counter()
     for r in rows:

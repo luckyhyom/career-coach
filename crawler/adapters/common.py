@@ -66,8 +66,13 @@ class RoleFilter:
         self.include = [k.lower() for k in include]
         self.exclude = [k.lower() for k in exclude]
 
+    FRONT = ("frontend", "front-end", "프론트엔드", "프론트 엔드")
+    BACK = ("backend", "back-end", "백엔드", "풀스택", "full-stack", "fullstack", "full stack", "서버", "server")
+
     def excluded(self, title: str) -> bool:
         t = (title or "").lower()
+        if any(f in t for f in self.FRONT) and not any(b in t for b in self.BACK):
+            return True  # "Software Engineer, Frontend" etc.
         return any(x in t for x in self.exclude)
 
     def match(self, title: str, extra: str = "") -> bool:

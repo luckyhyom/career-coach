@@ -1,0 +1,85 @@
+{
+ "labeled": 30,
+ "skills_precision": 0.901,
+ "skills_recall": 0.974,
+ "skills_f1": 0.936,
+ "min_years_acc": 0.533,
+ "coding_test_acc": 1.0,
+ "assignment_acc": 1.0,
+ "top_false_positives": [
+  [
+   "AI/LLM",
+   5
+  ],
+  [
+   "장애 대응",
+   5
+  ],
+  [
+   "기술 블로그/공유",
+   3
+  ],
+  [
+   "JavaScript",
+   3
+  ],
+  [
+   "협업/커뮤니케이션",
+   2
+  ],
+  [
+   "동시성",
+   2
+  ],
+  [
+   "MongoDB",
+   1
+  ],
+  [
+   "Docker",
+   1
+  ],
+  [
+   "Express",
+   1
+  ],
+  [
+   "알고리즘/CS",
+   1
+  ]
+ ],
+ "top_false_negatives": [
+  [
+   "CI/CD",
+   2
+  ],
+  [
+   "Testing",
+   1
+  ],
+  [
+   "모니터링/APM",
+   1
+  ],
+  [
+   "RDBMS",
+   1
+  ],
+  [
+   "Message Queue",
+   1
+  ],
+  [
+   "쿼리 튜닝",
+   1
+  ],
+  [
+   "MSA",
+   1
+  ]
+ ],
+ "labelers": {
+  "claude (2026-10-16, 매칭 문맥 검토 기반; 사용자 검수 전)": 20,
+  "claude (2026-10-16, 매칭 문맥 검토 기반; 사용자 검수 전) / 경력 라벨 원문 재확인": 10
+ }
+}
