@@ -1,0 +1,17 @@
+# 멘토 지식 DB (구조화). context_pack.py가 axis·applies_when으로 필요한 원칙만 골라 리뷰에 넣는다.
+# axis: crawler/insight.py의 AXES 또는 resume_format / job_search (서류 형식·구직 활동 원칙)
+# applies_when: {stages: [early|growth|late|bigtech|mid|any], roles: [...|any], years: "0-3" 등} — 생략 시 any
+# source_type: direct_advice(직접 받은 조언) | published(공개 자료 요약) — "그 사람이 직접 말한 것"처럼 인용하지 않는다.
+# 공개 원칙만 둔다. 직접 받은 조언·유료 자료 요약은 {PROFILE}/mentors/principles.yaml에 둔다(엔진 git 제외).
+# 리뷰는 두 파일을 합쳐 쓴다. id는 겹치지 않게 출처 접두어를 붙인다(예: bada-1).
+principles:
+  - id: ihyeong-1
+    source: 면접왕 이형 (유튜브)
+    source_type: published
+    evidence: "원본 영상 링크로 보강 필요 (예시 원칙)"
+    axis: job_search
+    criterion: 지원 동기와 개발자 페르소나를 준비한다 (원본 확인 전 — 낮은 신뢰)
+    applies_when: {stages: [any]}
+    good_example: ""
+    bad_example: ""
+    check: 회사별 지원 동기가 '회사→팀→나의 기여' 순서로 정리돼 있는가?

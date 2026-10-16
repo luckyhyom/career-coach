@@ -61,7 +61,15 @@ def connect() -> sqlite3.Connection:
     con.execute("PRAGMA journal_mode=WAL")
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(jobs)")}
+    if "content_hash" not in cols:  # migration: change detection
+        con.execute("ALTER TABLE jobs ADD COLUMN content_hash TEXT")
     return con
+
+
+def content_hash(job: dict) -> str:
+    body = "\n".join(str(job.get(k) or "") for k in ("title", "description", "qualifications", "preferred", "experience"))
+    return hashlib.sha1(re.sub(r"\s+", " ", body).strip().encode()).hexdigest()[:16]
 
 
 def _norm(s: str) -> str:
@@ -86,12 +94,23 @@ def upsert_job(con: sqlite3.Connection, job: dict) -> bool:
         also.add(job["url"])
         con.execute("UPDATE jobs SET also_on=?, last_seen=? WHERE uid=?", (json.dumps(sorted(also)), ts, uid))
         return False
+    job = dict(job, content_hash=content_hash(job))
     cols = ["source", "source_id", "url", "company", "title", "posted_at", "valid_through", "always_hiring",
-            "experience", "location", "description", "qualifications", "preferred", "source_skills", "salary", "steps"]
+            "experience", "location", "description", "qualifications", "preferred", "source_skills", "salary", "steps",
+            "content_hash"]
     vals = [job.get(c) for c in cols]
     if row:
+        old = con.execute("SELECT content_hash FROM jobs WHERE uid=?", (uid,)).fetchone()[0]
+        if old == job["content_hash"]:
+            con.execute("UPDATE jobs SET last_seen=? WHERE uid=?", (ts, uid))  # unchanged: no re-extract / re-analysis
+            return False
         sets = ", ".join(f"{c}=?" for c in cols) + ", last_seen=?, extracted_at=NULL"
         con.execute(f"UPDATE jobs SET {sets} WHERE uid=?", vals + [ts, uid])
+        # body changed -> drop cached LLM insight so it is re-analyzed once
+        try:
+            con.execute("DELETE FROM job_insights WHERE uid=?", (uid,))
+        except Exception:
+            pass
         return False
     con.execute(
         f"INSERT OR IGNORE INTO jobs (uid, {', '.join(cols)}, first_seen, last_seen) VALUES (?{', ?' * len(cols)}, ?, ?)",

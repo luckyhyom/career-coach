@@ -7,12 +7,12 @@ description: "이력서를 단계별 면접관 페르소나 + HR + 멘토 렌즈
 1. `me/resume.md`를 읽는다. 비어 있거나 템플릿 그대로면 사용자에게 먼저 작성을 요청하고 멈춘다.
 2. 리뷰어를 고른다.
    - stage 인자: 해당 단계 페르소나 + hr-recruiter + mentor-lens. stage→페르소나 매핑은 아래와 같다.
-     - seed/series_a → seed-series-a-cto
-     - series_b/series_c_plus → series-b-c-techlead
-     - pre_ipo_unicorn → unicorn-senior
-     - big_tech/enterprise → bigtech-interviewer
-     - listed_mid → midsize-lead
-     - si_agency → si-agency-pm
+     - seed/series_a/early → stage-early
+     - series_b/series_c_plus/growth → stage-growth
+     - pre_ipo_unicorn/foreign/late → stage-late
+     - big_tech/enterprise/bigtech → stage-bigtech
+     - listed_mid/si_agency/mid → stage-mid
+     - 선택: 직무 유형 인자(product_backend, sdet_quality 등)는 `data/personas/role_<type>.json` 보정으로 함께 전달한다.
    - uid 인자: 공고의 회사 단계로 페르소나를 고르고, 공고 요건을 함께 전달한다.
    - 인자가 없으면 `/target` 상위 단계 1개를 쓴다.
 3. 서브에이전트들을 **병렬로** 실행한다. 이력서 경로와 기준 데이터 경로만 넘긴다.

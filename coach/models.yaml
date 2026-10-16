@@ -1,0 +1,17 @@
+# LLM 프로바이더 설정. 비교 평가(eval/review_eval.py)와 서비스 라우팅에서 같은 이름으로 쓴다.
+# price_per_mtok: 공식 요금표에서 직접 확인해 넣을 것(USD / 100만 토큰). 비워 두면 비용은 토큰 수만 기록.
+# claude_cli는 CLI가 total_cost_usd를 돌려주므로 가격 입력 불필요.
+models:
+  claude-sonnet:   {provider: claude_cli, model: sonnet}
+  claude-haiku:    {provider: claude_cli, model: haiku}
+  claude-opus:     {provider: claude_cli, model: opus}
+  # 로컬 (Ollama 설치 후: brew install ollama && ollama pull <tag>). M1 8GB에서는 4B급, 입력 4K~8K부터 테스트.
+  local-qwen-small:  {provider: ollama, model: "qwen3:4b", num_ctx: 8192}       # 태그는 `ollama list`/라이브러리에서 확인 후 수정
+  local-gemma-small: {provider: ollama, model: "gemma3:4b", num_ctx: 8192}
+  # OpenAI 호환 API (예: DashScope 국제 리전). .env에 키, base_url은 공식 문서 기준으로.
+  qwen-api:
+    provider: openai_compat
+    base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"   # 공식 문서로 확인
+    api_key_env: DASHSCOPE_API_KEY
+    model: "qwen-plus"                                                     # 사용할 모델명으로 수정
+    price_per_mtok: {input: null, output: null}

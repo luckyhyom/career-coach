@@ -1,0 +1,14 @@
+id: case-a
+resume_file: eval/fixtures/sample_resume_a.md
+band: growth
+role: product_backend
+years: 4
+gold_source: provisional   # Claude 임시 작성 — 실제 백엔드 멘토 평가로 교체할 것
+mentor_gold:
+  - {id: g1, issue: "모든 경력 bullet에 결과·수치가 없음 (무엇을 했는지만 있음)", severity: high}
+  - {id: g2, issue: "'Redis 캐시로 성능 최적화'의 문제 상황·측정 방법·개선 수치가 없음", severity: high}
+  - {id: g3, issue: "주문/결제 API에서 정합성·멱등성·트랜잭션 처리를 어떻게 했는지가 없음", severity: high}
+  - {id: g4, issue: "소개 문장이 일반적(성실, 배움) — 해결해 온 문제 영역이 드러나지 않음", severity: medium}
+  - {id: g5, issue: "기술 스택 나열(Kafka, Kubernetes 등)이 경력 본문 근거와 연결되지 않음", severity: medium}
+  - {id: g6, issue: "'레거시 리팩토링'의 범위·이유·효과가 없음", severity: medium}
+  - {id: g7, issue: "테스트·코드 품질 관련 근거가 전혀 없음", severity: medium}
