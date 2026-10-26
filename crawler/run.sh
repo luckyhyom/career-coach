@@ -2,6 +2,7 @@
 # 주간 실행: crawl → extract → stats (LLM 없음) → claude -p 로 리포트 1회 생성
 set -u
 cd "$(dirname "$0")/.."
+[ -f .env ] && set -a && . ./.env && set +a
 export COACH_PROFILE="${COACH_PROFILE:-profiles/me}"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 LOG=data/weekly.log

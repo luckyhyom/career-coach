@@ -1,7 +1,7 @@
 # 탐색 사이트 목록. 각 사이트는 robots.txt / 접근 정책을 확인한 뒤 enabled를 정했다 (2026-10-16 점검).
 # 봇 차단(Cloudflare/CloudFront 403, 챌린지)이 걸린 사이트는 우회하지 않고 비활성화한다.
 global:
-  user_agent: "career-coach-personal/0.1 (personal job research; +mailto:{contact})"
+  user_agent: "career-coach-personal/0.1 (personal job research; +mailto:{contact})"  # {contact} = .env COACH_CONTACT
   rate_per_sec: 0.3          # 도메인당 약 3.3초에 1건
   jitter_sec: [0.5, 1.5]     # 요청마다 추가 랜덤 대기
   max_requests_per_site: 1500

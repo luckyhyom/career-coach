@@ -32,7 +32,11 @@ def _resume_path(a):
     if a.resume:
         return Path(a.resume)
     prof = Path(a.profile or os.environ.get("COACH_PROFILE", "profiles/me"))
-    return ROOT / prof / "resume.md" if not prof.is_absolute() else prof / "resume.md"
+    path = prof / "resume.md" if prof.is_absolute() else ROOT / prof / "resume.md"
+    if not path.exists():
+        raise SystemExit(f"{path} not found. Pass --resume <file>, or: cp -r profiles/_template profiles/me "
+                         f"(or set COACH_PROFILE in .env)")
+    return path
 
 
 def _job_band(uid):
@@ -92,6 +96,8 @@ def cmd_panel(a):
 
 
 def main():
+    from .llm import _env
+    _env()  # .env: COACH_PROFILE, model overrides, API keys
     ap = argparse.ArgumentParser(prog="coach")
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("review", "target", "panel"):

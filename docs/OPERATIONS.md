@@ -3,7 +3,13 @@
 ## 설치
 ```bash
 python3 -m venv .venv && .venv/bin/pip install PyYAML
-cp .env.example .env        # 선택: SARAMIN_ACCESS_KEY, DASHSCOPE_API_KEY, REDACT_NAMES
+cp .env.example .env              # COACH_PROFILE, COACH_CONTACT(크롤링 시 필수), 모델·API 키
+cp -r profiles/_template profiles/me   # resume.md를 직접 채운다
+```
+- LLM은 하나만 있으면 된다: 로그인된 `claude` CLI(기본) / Ollama / OpenAI 호환 API (`coach/models.yaml`).
+- clone 직후에는 공고 DB가 없다. `review`·`panel`·`target`은 저장소의 단계 통계로 동작하고, 공고 원문 인용은 크롤링 뒤에 붙는다.
+
+```bash
 ```
 
 ## 이력서 리뷰 (누구나)
@@ -37,7 +43,11 @@ cp .env.example .env        # 선택: SARAMIN_ACCESS_KEY, DASHSCOPE_API_KEY, RED
 .venv/bin/python -m crawler.persona_build    # 페르소나 수치                                       [LLM 0]
 .venv/bin/python -m crawler.persona_write    # 입력 해시가 바뀐 단계만 카드 재작성                 [Sonnet]
 ```
-자동 실행은 `crawler/run.sh`와 `launchd/career-coach.plist.template`(매주 일요일 04:00)를 씁니다. 아직 **등록하지 않았고, 사용자 승인이 필요합니다.**
+자동 실행은 `crawler/run.sh`와 `launchd/career-coach.plist.template`(매주 일요일 04:00, macOS)을 씁니다. 등록은 사용자가 직접 결정합니다.
+```bash
+sed "s|__ROOT__|$PWD|g" launchd/career-coach.plist.template > ~/Library/LaunchAgents/com.career-coach.weekly.plist
+launchctl load ~/Library/LaunchAgents/com.career-coach.weekly.plist
+```
 
 ## 사이트, 회사, 멘토 추가
 - **사이트**: `crawler/adapters/<site>.py`를 작성하고 `crawler/sites.yaml`에 등록합니다. 등록 전에 robots.txt를 확인하고 50건으로 시험합니다.

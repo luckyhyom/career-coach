@@ -72,6 +72,8 @@ def render(result: dict, validation: dict, pack: dict, meta: dict, fit: list = N
           f"- 단계 데이터 신뢰도: {P.get('confidence')} (근거 {P.get('postings')}건). 회사 균형 가중 적용.",
           f"- 자동 검증(인용 실재·수치 날조·과장 표현)에서 {len(failed)}개 지적을 제외했습니다.",
           "- 정확도 지표는 예비 단계입니다(멘토 라벨 검증 전). `data/eval/README.md` 참고."]
+    if not pack.get("similar") and not pack.get("job"):
+        L.append("- 공고 DB가 없어 `[공고]` 원문 근거 없이 단계 통계만으로 평가했습니다. 크롤러를 실행하면 공고 인용이 붙습니다(docs/OPERATIONS.md).")
     return "\n".join(L) + "\n"
 
 

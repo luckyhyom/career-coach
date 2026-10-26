@@ -4,6 +4,19 @@
 - 자세한 설계: `docs/ARCHITECTURE.md`
 - 운영 방법: `docs/OPERATIONS.md`
 
+## 0. 처음 clone했을 때 (에이전트가 이 순서로 실행)
+```bash
+python3 -m venv .venv && .venv/bin/pip install PyYAML     # Python 3.9+
+cp .env.example .env                                      # 필요한 값만 채운다 (아래 참고)
+cp -r profiles/_template profiles/me                      # 지원자가 profiles/me/resume.md를 직접 채운다
+.venv/bin/python -m unittest discover -s tests            # 29개 통과 확인 (LLM 불필요)
+.venv/bin/python -m coach.cli panel --resume eval/fixtures/sample_resume_a.md   # 가상 이력서로 동작 확인
+```
+- **LLM 준비 (하나만)**: 기본값은 로그인된 `claude` CLI다. 없으면 `.env`에 `COACH_MODEL_REVIEW=local-qwen-small`(Ollama)이나 OpenAI 호환 키를 넣는다. 모델 목록은 `coach/models.yaml`.
+- **바로 되는 것**: `review`, `panel`, `target`. 저장소에 들어 있는 단계 통계와 페르소나(`data/personas`, `data/stats`)를 쓴다.
+- **크롤링해야 되는 것**: 공고 원문 인용(`[공고]` 근거), `--job <uid>`, 데이터 갱신. 공고 DB(`data/jobs.sqlite`)는 git에 없다. `.env`에 `COACH_CONTACT`(본인 이메일)를 넣고 `docs/OPERATIONS.md`의 데이터 갱신 순서를 따른다.
+- 이력서는 **지원자가 직접 쓴다.** 에이전트는 `resume.md`를 대신 쓰지 않는다.
+
 ## 1. 구조 한 장 요약
 ```
 crawler/   수집·추출·통계·공고 정밀분석·페르소나 생성 (스크립트 우선, LLM은 공고당 1회·단계당 1회)

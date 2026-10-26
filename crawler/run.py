@@ -27,6 +27,15 @@ def load_env():
                 os.environ.setdefault(k.strip(), v.strip())
 
 
+def user_agent(g):
+    """sites.yaml UA with the operator's contact from .env (COACH_CONTACT). Polite crawling needs a reachable contact."""
+    load_env()
+    contact = os.environ.get("COACH_CONTACT", "").strip()
+    if not contact:
+        raise SystemExit("Set COACH_CONTACT=<your email> in .env — sites can reach you instead of blocking (docs/OPERATIONS.md)")
+    return g["user_agent"].replace("{contact}", contact)
+
+
 def crawl(only=None, limit=None, days=None):
     cfg = yaml.safe_load((ROOT / "crawler" / "sites.yaml").read_text("utf-8"))
     companies = (yaml.safe_load((ROOT / "crawler" / "companies.yaml").read_text("utf-8")) or {}).get("companies", [])
@@ -41,7 +50,7 @@ def crawl(only=None, limit=None, days=None):
             logging.info("skip %s (%s)", name, site.get("note", "disabled"))
             continue
         f = Fetcher(
-            user_agent=g["user_agent"],
+            user_agent=user_agent(g),
             rate_per_sec=site.get("rate_per_sec", g["rate_per_sec"]),
             jitter=tuple(g["jitter_sec"]),
             max_requests=limit or site.get("max_requests", g["max_requests_per_site"]),

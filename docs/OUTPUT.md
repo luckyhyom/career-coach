@@ -40,4 +40,4 @@
 
 ## 예시
 - 가상 인물: `out/test/*-review-early.md`
-- 실제 이력서: `profiles/me/reviews/*-review-*.md` (프로필 저장소 안)
+- 실제 이력서: `profiles/<id>/reviews/*-review-*.md` (프로필 폴더 안, git 제외)

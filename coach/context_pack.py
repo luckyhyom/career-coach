@@ -125,8 +125,19 @@ def mentor_part(band, role, years, axes):
     return {"_provenance": "멘토", "principles": keep}
 
 
-def build(band, role=None, uid=None, years=None, resume=None):
+def _jobs_db():
+    """Posting DB with LLM insights, or None (fresh clone: data/jobs.sqlite is not in git)."""
+    if not db.DB_PATH.exists():
+        return None
     con = db.connect()
+    has = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='job_insights'").fetchone()
+    return con if has else None
+
+
+def build(band, role=None, uid=None, years=None, resume=None):
+    con = _jobs_db()
+    if uid and con is None:
+        raise SystemExit("--job needs the posting DB (data/jobs.sqlite). Run the crawler first: docs/OPERATIONS.md")
     persona = persona_part(band, role)
     job, job_vec = job_part(con, uid) if uid else (None, None)
     ref = job_vec or persona["axis_weight"]
@@ -135,7 +146,8 @@ def build(band, role=None, uid=None, years=None, resume=None):
         "request": {"band": band, "role": role, "uid": uid, "years": years},
         "persona": persona,
         "job": job,
-        "similar": similar_part(con, band, ref, exclude_uid=uid),
+        # without a crawled DB (fresh clone) reviews still run on the shipped persona stats; [공고] quotes are skipped
+        "similar": similar_part(con, band, ref, exclude_uid=uid) if con else [],
         "mentor": mentor_part(band, role, years, persona["top_axes"]),
     }
     if resume:
