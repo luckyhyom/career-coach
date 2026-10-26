@@ -76,13 +76,32 @@ def cmd_review(a):
     print(f"saved {out_dir / stem}.md  (band={band}, role={role}, pass_rate={r['validation']['pass_rate']:.0%})")
 
 
+def cmd_panel(a):
+    from .panel import render as prender, run as prun
+    rpath = _resume_path(a)
+    out_dir = Path(a.out) if a.out else (rpath.parent / "reviews" if (rpath.parent / "reviews").exists() else ROOT / "out")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prev_files = sorted(out_dir.glob("*-panel.json"))
+    previous = json.loads(prev_files[-1].read_text("utf-8"))["panel"] if prev_files else None
+    panel, agg, meta = prun(rpath.read_text("utf-8"), a.name or rpath.parent.name, a.model or "route:review", previous)
+    stem = f"{time.strftime('%Y%m%d-%H%M')}-panel"
+    (out_dir / f"{stem}.md").write_text(prender(panel, agg, meta), "utf-8")
+    (out_dir / f"{stem}.json").write_text(json.dumps({"meta": meta, "panel": [{k: v for k, v in p.items() if k != "vec"} for p in panel],
+                                                      "aggregate": agg}, ensure_ascii=False, indent=1), "utf-8")
+    print(f"saved {out_dir / stem}.md  seats={agg['seats']}  verdicts={[p['result']['verdict'] for p in panel if p['result']]}")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="coach")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("review", "target"):
+    for name in ("review", "target", "panel"):
         p = sub.add_parser(name)
         p.add_argument("--resume")
         p.add_argument("--profile")
+        if name == "panel":
+            p.add_argument("--model")
+            p.add_argument("--name")
+            p.add_argument("--out")
         if name == "review":
             p.add_argument("--band", choices=["early", "growth", "late", "bigtech", "mid", "overall"])
             p.add_argument("--role")
@@ -91,7 +110,7 @@ def main():
             p.add_argument("--name")
             p.add_argument("--out")
     a = ap.parse_args()
-    {"review": cmd_review, "target": cmd_target}[a.cmd](a)
+    {"review": cmd_review, "target": cmd_target, "panel": cmd_panel}[a.cmd](a)
 
 
 if __name__ == "__main__":

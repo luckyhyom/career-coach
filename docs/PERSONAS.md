@@ -55,6 +55,13 @@
   - 리포트의 **가중 총점**은 그 단계 가중치로 계산한다.
 - **에이전트 (`prompts/reviewers/stage-*.md`)**
   - 같은 데이터를 쓴다. 단계 페르소나, HR, 멘토 렌즈가 병렬로 평가하고 review-critic이 검수한다.
+- **패널 (`coach/panel.py`)**
+  - 각 단계 페르소나가 이력서 하나를 독립적으로 판정한다(PASS/HOLD/REJECT, 탈락 사유 1개, 고칠 문장 1개, 질문 3개).
+  - 합의는 '독립 표'로 센다. 가중치가 비슷한 페르소나는 한 표다. 자세한 형식은 docs/OUTPUT.md.
+- **스택 위치** (`persona_build.stack_position`, 프로필의 `stack_position`)
+  - 공고마다 Node/TS가 필수인지, 우대인지, 다른 스택(Java, Kotlin, Go 등)이 필수인지, 스택과 무관한지 분류한다.
+  - `stack_flexibility: flexible`이면 다른 스택이 필수로 적혀 있어도 '무관'으로 본다.
+  - 전체 199건 기준: Node/TS 필수 37, 우대 14, 다른 스택 필수 62, 무관 86. 빅테크는 33건 중 16건이 다른 스택 필수.
 - **단계 무관 렌즈**: hr-recruiter, headhunter, culture-peer, domain-fintech-commerce
   - 이 넷은 아직 수작업 정의다. 도메인 렌즈를 데이터 기반으로 바꾸는 작업이 남아 있다.
 

@@ -13,6 +13,7 @@ cp .env.example .env        # 선택: SARAMIN_ACCESS_KEY, DASHSCOPE_API_KEY, RED
 .venv/bin/python -m coach.cli review --profile profiles/<id> --band growth --role product_backend
 .venv/bin/python -m coach.cli review --profile profiles/<id> --job <공고 uid>        # 공고 매칭 섹션 포함
 .venv/bin/python -m coach.cli target --resume someone.md                            # 단계 적합도만
+.venv/bin/python -m coach.cli panel --profile profiles/<id>                         # 단계 페르소나 패널 판정 (docs/OUTPUT.md)
 ```
 새 지원자는 `cp -R profiles/_template profiles/<id>`로 만들고 `resume.md`만 채우면 됩니다.
 

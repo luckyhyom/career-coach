@@ -21,6 +21,7 @@ tests/     단위 테스트 (stdlib unittest)
 | 하고 싶은 일 | 스크립트 (에이전트 불필요) | 에이전트에게 |
 |---|---|---|
 | 이력서 리뷰 | `.venv/bin/python -m coach.cli review --profile profiles/<id>` 또는 `--resume <file>` | `prompts/commands/resume-review.md` |
+| 채용담당자 패널 판정 | `.venv/bin/python -m coach.cli panel --profile profiles/<id>` 또는 `--resume <file>` | docs/OUTPUT.md (패널 리포트) |
 | 맞는 단계 찾기 | `.venv/bin/python -m coach.cli target --resume <file>` | `prompts/commands/target.md` |
 | 공고 1건 적합도 | `coach.cli review --job <uid>` | `prompts/commands/job-fit.md` |
 | 갭·주간계획·모의면접·포트폴리오·멘토추가·주간리포트·보정 | — | `prompts/commands/{gap,plan-week,mock-interview,portfolio-review,mentor-add,weekly-report,calibrate}.md` |

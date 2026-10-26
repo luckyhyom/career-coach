@@ -50,6 +50,7 @@ SCHEMA = {
 
 SYSTEM = """너는 백엔드 이력서 평가자다. 입력은 JSON 컨텍스트 팩(persona=단계 통계, job=대상 공고, similar=유사 공고 필수요건, mentor=멘토 원칙, resume=이력서)이다.
 규칙:
+0. 지원자의 연차·스택·경력은 resume에서만 읽는다. 전제를 주입하거나 추측으로 채우지 않는다.
 1. persona.top_axes 각각을 0~5점: 0 없음/1 키워드만/2 행동만/3 결과 수치/4 수치+측정방법+본인역할/5 4+의사결정 근거. evidence_bars가 있으면 그 단계 기준을 따른다. 의심되면 낮게.
 2. issues는 5~10개, severity high부터. 각 issue는 resume_quote(이력서 원문 그대로), problem, fix(그 문장에 맞춘 대체 문장), evidence_type, evidence를 모두 갖춘다.
 3. evidence_type: 공고(job/similar의 원문 quote를 그대로+uid) / 통계(persona 수치) / 멘토(mentor principle id) / 단계추정(통계로부터의 추론, 단정 금지) / 의견.

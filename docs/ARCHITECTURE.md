@@ -44,6 +44,10 @@
    resume ─ redact.py(PII 제거) ─ candidate.py(LLM, 해시 캐시: 축별 근거 수준 0~3, 인용 검증)
           ─ target.py(결정적: 단계 적합도) ─ context_pack.py(필요한 근거만 ~1.5~3K 토큰)
           ─ review.py(LLM 1회 + 결정적 검증) ─ report.py(고정 형식 리포트 md+json)
+
+[패널 coach/cli.py panel]
+   resume ─ redact.py ─ panel.py: 단계별 judge(LLM 1회씩 병렬, 반환값 검사·1회 재시도)
+          ─ aggregate(결정적: 독립 표, 자리 수, 스택 위치, 승격, 회귀) ─ render(①~⑥ md+json)
 ```
 
 ## 공통 모집단 (`crawler/population.py`)

@@ -39,6 +39,23 @@ ABROAD = re.compile(r"usa|united states|india|bengaluru|hyderabad|singapore|chin
                     r"seattle|mountain view|new york|nyc|london|vietnam|hanoi", re.I)
 
 
+TARGET_STACK = re.compile(r"node|nest|typescript|타입스크립트|(?<![a-z])ts(?![a-z])|javascript|express", re.I)
+OTHER_STACK = re.compile(r"(?<![a-z])java(?!script)|kotlin|spring|(?<![a-z])go(?:lang)?(?![a-z])|python|django|php|ruby|c#|\.net|c\+\+", re.I)
+
+
+def stack_position(ins) -> str:
+    """Where the candidate's target stack (Node/TS) sits in a posting: required / preferred / other_required / agnostic."""
+    musts = [i["quote"] for i in ins["items"] if i["kind"] == "must"]
+    others = [i["quote"] for i in ins["items"] if i["kind"] != "must"]
+    if any(TARGET_STACK.search(q) for q in musts):
+        return "target_required"
+    if any(TARGET_STACK.search(q) for q in others):
+        return "target_preferred"
+    if any(OTHER_STACK.search(q) for q in musts) and ins.get("stack_flexibility") != "flexible":
+        return "other_required"
+    return "agnostic"
+
+
 def band_of(stage: str):
     return next((b for b, s in BANDS.items() if stage in s), None)
 
@@ -138,6 +155,8 @@ def profile(recs, overall_vec, name):
         "domains": Counter(r["ins"]["domain"] for r in recs).most_common(12),
         "role_types": dict(Counter(r["ins"]["role_type"] for r in recs).most_common()),
         "stack_flexibility": dict(Counter(r["ins"]["stack_flexibility"] for r in recs)),
+        # seats = real open postings this persona represents, split by where Node/TS sits (target stack)
+        "stack_position": dict(Counter(stack_position(r["ins"]) for r in recs)),
         "team_problems": [{"text": r["ins"]["team_problem"], "uid": r["uid"], "company": r["company"]} for r in recs[:20]],
         "work_items_for_questions": [{"quote": it["quote"], "uid": r["uid"]} for r in recs for it in r["ins"]["items"]
                                      if it["kind"] == "work"][:40],
