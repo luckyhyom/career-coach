@@ -12,7 +12,6 @@ echo "=== $(date '+%F %T') start" >> "$LOG"
 .venv/bin/python -m crawler.insight run --workers 4 >> "$LOG" 2>&1
 .venv/bin/python -m crawler.persona_build >> "$LOG" 2>&1
 .venv/bin/python -m crawler.persona_write >> "$LOG" 2>&1
-git add data/stats data/personas personas >/dev/null 2>&1 && git commit -qm "stats $(date +%F)" >/dev/null 2>&1
 if command -v claude >/dev/null 2>&1; then
   claude -p "prompts/commands/weekly-report.md를 읽고 수행하라. {PROFILE}=$COACH_PROFILE" --allowedTools "Read,Write,Edit,Glob,Grep,Bash(sqlite3:*),Bash(git add:*),Bash(git commit:*),Bash(git -C:*)" >> "$LOG" 2>&1 \
     || echo "claude -p failed" >> "$LOG"

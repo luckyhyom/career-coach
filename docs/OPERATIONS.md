@@ -7,7 +7,7 @@ cp .env.example .env              # COACH_PROFILE, COACH_CONTACT(크롤링 시 �
 cp -r profiles/_template profiles/me   # resume.md를 직접 채운다
 ```
 - LLM은 하나만 있으면 된다: 로그인된 `claude` CLI(기본) / Ollama / OpenAI 호환 API (`coach/models.yaml`).
-- clone 직후에는 공고 DB가 없다. `review`·`panel`·`target`은 저장소의 단계 통계로 동작하고, 공고 원문 인용은 크롤링 뒤에 붙는다.
+- clone 직후에는 공고 데이터가 없다. 아래 '데이터 갱신' 순서를 한 번 돌려야 `review`·`panel`이 동작한다(AGENTS.md 0절). 본인 메모 활용은 `prompts/commands/import-notes.md`.
 
 ```bash
 ```

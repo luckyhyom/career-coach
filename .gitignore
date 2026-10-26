@@ -15,3 +15,10 @@ data/*.log
 data/jobs.sqlite-*
 out/
 data/cache/
+
+# 공고에서 만든 데이터 — 공개 저장소에 싣지 않고 각자 크롤링해서 만든다 (AGENTS.md 0절)
+data/stats/
+data/personas/
+data/eval/extract_gold.jsonl
+personas/stage-*.md
+eval/results/

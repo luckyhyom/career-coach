@@ -242,6 +242,9 @@ def render(panel, agg, meta):
 def run(resume_text, candidate="익명", model="route:review", previous=None):
     text, _ = redact(resume_text)
     bands = [b for b in BANDS if (PDIR / f"{b}.json").exists() and json.loads((PDIR / f"{b}.json").read_text("utf-8"))["companies"] >= 3]
+    if not bands:
+        raise SystemExit("No persona data yet (data/personas/). A fresh clone ships without posting data — "
+        "build it first: AGENTS.md section 0 / docs/OPERATIONS.md '데이터 갱신'")
     with ThreadPoolExecutor(max_workers=len(bands)) as ex:
         panel = list(ex.map(lambda b: judge(b, text, model), bands))
     agg = aggregate(panel, previous)

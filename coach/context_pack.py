@@ -51,6 +51,9 @@ def _years_ok(spec, years):
 
 def persona_part(band, role):
     p = _load(band) or _load("overall")
+    if not p:
+        raise SystemExit("No persona data yet (data/personas/). A fresh clone ships without posting data — "
+                         "build it first: AGENTS.md section 0 / docs/OPERATIONS.md '데이터 갱신'")
     w = dict(p["axis_weight"])
     note = None
     r = _load(f"role_{role}") if role else None
@@ -107,8 +110,18 @@ def similar_part(con, band, ref_vec, exclude_uid=None, k=5):
     return {"_provenance": "공고", "postings": out}
 
 
+def _mentor_files():
+    """Public principles in the engine + private ones (direct advice, paid material) in the profile."""
+    import os
+    prof = Path(os.environ.get("COACH_PROFILE", "profiles/me"))
+    prof = prof if prof.is_absolute() else ROOT / prof
+    return [f for f in (ROOT / "mentors" / "principles.yaml", prof / "mentors" / "principles.yaml") if f.exists()]
+
+
 def mentor_part(band, role, years, axes):
-    data = yaml.safe_load((ROOT / "mentors" / "principles.yaml").read_text("utf-8"))["principles"]
+    data = []
+    for f in _mentor_files():
+        data += (yaml.safe_load(f.read_text("utf-8")) or {}).get("principles") or []
     keep = []
     for p in data:
         aw = p.get("applies_when") or {}

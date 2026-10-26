@@ -4,18 +4,31 @@
 - 자세한 설계: `docs/ARCHITECTURE.md`
 - 운영 방법: `docs/OPERATIONS.md`
 
-## 0. 처음 clone했을 때 (에이전트가 이 순서로 실행)
-```bash
-python3 -m venv .venv && .venv/bin/pip install PyYAML     # Python 3.9+
-cp .env.example .env                                      # 필요한 값만 채운다 (아래 참고)
-cp -r profiles/_template profiles/me                      # 지원자가 profiles/me/resume.md를 직접 채운다
-.venv/bin/python -m unittest discover -s tests            # 29개 통과 확인 (LLM 불필요)
-.venv/bin/python -m coach.cli panel --resume eval/fixtures/sample_resume_a.md   # 가상 이력서로 동작 확인
-```
-- **LLM 준비 (하나만)**: 기본값은 로그인된 `claude` CLI다. 없으면 `.env`에 `COACH_MODEL_REVIEW=local-qwen-small`(Ollama)이나 OpenAI 호환 키를 넣는다. 모델 목록은 `coach/models.yaml`.
-- **바로 되는 것**: `review`, `panel`, `target`. 저장소에 들어 있는 단계 통계와 페르소나(`data/personas`, `data/stats`)를 쓴다.
-- **크롤링해야 되는 것**: 공고 원문 인용(`[공고]` 근거), `--job <uid>`, 데이터 갱신. 공고 DB(`data/jobs.sqlite`)는 git에 없다. `.env`에 `COACH_CONTACT`(본인 이메일)를 넣고 `docs/OPERATIONS.md`의 데이터 갱신 순서를 따른다.
-- 이력서는 **지원자가 직접 쓴다.** 에이전트는 `resume.md`를 대신 쓰지 않는다.
+## 0. 처음 clone했을 때 (에이전트가 이 순서로 진행)
+공개 저장소에는 **코드, 프롬프트, 템플릿만** 있다. 공고 데이터와 개인 데이터는 없다. 단계마다 사용자에게 확인하고 진행한다.
+
+1. **설치** (Python 3.9+)
+   ```bash
+   python3 -m venv .venv && .venv/bin/pip install PyYAML
+   cp .env.example .env                       # COACH_CONTACT(본인 이메일)는 크롤링에 필수
+   cp -r profiles/_template profiles/me
+   .venv/bin/python -m unittest discover -s tests   # LLM 없이 통과해야 한다
+   ```
+2. **LLM 하나 준비**: 로그인된 `claude` CLI(기본) / Ollama / OpenAI 호환 키. `.env`의 `COACH_MODEL_*`와 `coach/models.yaml`.
+3. **공고 데이터 만들기** — 사용자에게 시간과 비용을 먼저 알리고 동의를 받는다.
+   ```bash
+   .venv/bin/python -m crawler.run all          # 수집·추출·통계 [LLM 0, 요청 속도 제한 때문에 수 시간]
+   .venv/bin/python -m crawler.insight run      # 공고 해석 [Haiku, 공고당 약 $0.0035 → 300건 약 $1]
+   .venv/bin/python -m crawler.persona_build    # 단계별 페르소나 수치 [LLM 0]
+   .venv/bin/python -m crawler.persona_write    # 페르소나 카드 [Sonnet, 단계당 약 $0.1]
+   ```
+   - 끝나면 `data/stats`, `data/personas`, `personas/stage-*.md`가 생긴다(git 제외). 이게 없으면 `review`·`panel`은 안내 메시지를 내고 멈춘다.
+   - 차단(403, 챌린지)은 우회하지 않는다. 막힌 사이트는 건너뛴다.
+4. **본인 메모를 활용할지 묻는다** (선택): "Notion, Obsidian, Apple 메모·미리 알림 같은 자료에 이력서에 안 쓴 경험이나 할 일이 있나요? 읽기 전용으로 정리해 드릴까요?"
+   - 원하면 `prompts/commands/import-notes.md`를 따른다. 결과는 `profiles/me/`의 experience, skills, todo-backlog, mentors에 들어간다.
+   - 원하지 않으면 건너뛴다. 이력서만으로도 리뷰는 된다.
+5. **이력서**: 지원자가 `profiles/me/resume.md`를 **직접** 쓴다. 에이전트는 대신 쓰지 않는다.
+6. **실행**: `coach.cli panel --profile profiles/me`, `coach.cli review --profile profiles/me`
 
 ## 1. 구조 한 장 요약
 ```
@@ -38,6 +51,7 @@ tests/     단위 테스트 (stdlib unittest)
 | 맞는 단계 찾기 | `.venv/bin/python -m coach.cli target --resume <file>` | `prompts/commands/target.md` |
 | 공고 1건 적합도 | `coach.cli review --job <uid>` | `prompts/commands/job-fit.md` |
 | 갭·주간계획·모의면접·포트폴리오·멘토추가·주간리포트·보정 | — | `prompts/commands/{gap,plan-week,mock-interview,portfolio-review,mentor-add,weekly-report,calibrate}.md` |
+| 본인 메모에서 경험·할 일 정리 | — | `prompts/commands/import-notes.md` |
 | 데이터 갱신 | `.venv/bin/python -m crawler.run all` → `crawler.insight run` → `crawler.persona_build` → `crawler.persona_write` | — |
 | 테스트 | `.venv/bin/python -m unittest discover -s tests` | — |
 
