@@ -50,8 +50,16 @@ def _job_band(uid):
     return band_of(st)
 
 
+def _fresh(a):
+    """Re-crawl first when the posting data is older than today (crawler/refresh.py)."""
+    from crawler.refresh import ensure_fresh
+    d = ensure_fresh(not a.no_refresh)
+    return d.isoformat() if d else None
+
+
 def cmd_target(a):
     text = _resume_path(a).read_text("utf-8")
+    _fresh(a)
     prof = parse(text)
     res = stage_fit(levels(prof), prof.get("years_total"))
     print(json.dumps({"candidate": {k: prof[k] for k in ("years_total", "role_types", "domains")}, "fit": res},
@@ -61,6 +69,7 @@ def cmd_target(a):
 def cmd_review(a):
     rpath = _resume_path(a)
     text = rpath.read_text("utf-8")
+    as_of = _fresh(a)
     prof = parse(text)
     fit = stage_fit(levels(prof), prof.get("years_total"))
     band = a.band or (_job_band(a.job) if a.job else None) or (fit[0]["band"] if fit else "overall")
@@ -70,7 +79,7 @@ def cmd_review(a):
     r = review(pack, a.model or "route:review")
     meta = {"candidate": a.name or rpath.parent.name, "created": time.strftime("%Y-%m-%d %H:%M"), "model": r["model"],
             "cost_usd": (r["cost_usd"] or 0) + (prof["_meta"].get("cost_usd") or 0), "latency_s": r["latency_s"],
-            "band_selected": "manual" if a.band else ("job" if a.job else "auto")}
+            "band_selected": "manual" if a.band else ("job" if a.job else "auto"), "data_as_of": as_of}
     md = render(r["result"], r["validation"], pack, meta, fit if not a.band else None)
     out_dir = Path(a.out) if a.out else (rpath.parent / "reviews" if (rpath.parent / "reviews").exists() else ROOT / "out")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -83,11 +92,13 @@ def cmd_review(a):
 def cmd_panel(a):
     from .panel import render as prender, run as prun
     rpath = _resume_path(a)
+    as_of = _fresh(a)
     out_dir = Path(a.out) if a.out else (rpath.parent / "reviews" if (rpath.parent / "reviews").exists() else ROOT / "out")
     out_dir.mkdir(parents=True, exist_ok=True)
     prev_files = sorted(out_dir.glob("*-panel.json"))
     previous = json.loads(prev_files[-1].read_text("utf-8"))["panel"] if prev_files else None
     panel, agg, meta = prun(rpath.read_text("utf-8"), a.name or rpath.parent.name, a.model or "route:review", previous)
+    meta["data_as_of"] = as_of
     stem = f"{time.strftime('%Y%m%d-%H%M')}-panel"
     (out_dir / f"{stem}.md").write_text(prender(panel, agg, meta), "utf-8")
     (out_dir / f"{stem}.json").write_text(json.dumps({"meta": meta, "panel": [{k: v for k, v in p.items() if k != "vec"} for p in panel],
@@ -104,6 +115,7 @@ def main():
         p = sub.add_parser(name)
         p.add_argument("--resume")
         p.add_argument("--profile")
+        p.add_argument("--no-refresh", action="store_true", help="skip the automatic re-crawl when posting data is older than today")
         if name == "panel":
             p.add_argument("--model")
             p.add_argument("--name")

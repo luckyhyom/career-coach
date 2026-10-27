@@ -12,6 +12,14 @@ cp -r profiles/_template profiles/me   # resume.md를 직접 채운다
 ```bash
 ```
 
+## 공고 자동 갱신
+- `review`, `panel`, `target`을 실행하면 먼저 마지막 수집일을 본다(`runs` 테이블에서 성공한 가장 최근 실행).
+- **오늘보다 이전이면** 수집 → 추출 → 통계 → 공고 해석(신규·변경분만) → 페르소나 수치 → 페르소나 카드(입력이 바뀐 단계만)를 먼저 돌린다(`crawler/refresh.py`).
+  - 증분 수집이라 보통 수 분(10-28 실측 약 2분), 데이터가 없으면(처음 clone) 수 시간 걸린다. LLM 비용은 새 공고 해석(건당 약 $0.0035)과 바뀐 단계 카드(약 $0.1)뿐이다.
+  - 동시에 두 번 실행해도 잠금 파일(`data/refresh.lock`)로 한 번만 수집한다.
+  - 갱신이 실패하면(예: `COACH_CONTACT` 없음, 네트워크) 기존 데이터로 계속하고, 리포트에 수집일을 표시한다.
+- 끄기: 명령에 `--no-refresh`, 또는 `.env`에 `COACH_AUTO_REFRESH=off`.
+
 ## 이력서 리뷰 (누구나)
 ```bash
 .venv/bin/python -m coach.cli review --resume someone.md --name "지원자A"        # 단계 자동 선택 → out/

@@ -29,6 +29,7 @@
    - 원하지 않으면 건너뛴다. 이력서만으로도 리뷰는 된다.
 5. **이력서**: 지원자가 `profiles/me/resume.md`를 **직접** 쓴다. 에이전트는 대신 쓰지 않는다.
 6. **실행**: `coach.cli panel --profile profiles/me`, `coach.cli review --profile profiles/me`
+   - 공고 데이터가 오늘 것이 아니면 실행 전에 자동으로 다시 모은다(보통 수 분). 급하면 `--no-refresh`.
 
 ## 1. 구조 한 장 요약
 ```

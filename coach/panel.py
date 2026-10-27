@@ -189,7 +189,7 @@ def render(panel, agg, meta):
     ok = [p for p in panel if p["result"]]
     L = [f"# 채용담당자 패널 리뷰", "",
          f"- 대상: {meta['candidate']} · 생성 {meta['created']} · 모델 `{meta['model']}` · 비용 ${meta['cost']:.4f}",
-         f"- 페르소나 {len(ok)}명 **독립 판정 · 평균 없음** · 근거: 현재 모집 중 공고(단계별) · 연차·스택은 이력서에서만 읽음",
+         f"- 페르소나 {len(ok)}명 **독립 판정 · 평균 없음** · 근거: 현재 모집 중 공고(단계별, 수집일 {meta.get('data_as_of') or '알 수 없음'}) · 연차·스택은 이력서에서만 읽음",
          f"- 반환값 검사 재시도: {sum(p['attempts'] - 1 for p in panel)}회 · 남은 문제: {[(p['band'], p['problems']) for p in panel if p['problems']] or '없음'}",
          "", "## ① 판정 보드", ""]
     for v in VERDICTS:

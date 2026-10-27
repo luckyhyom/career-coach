@@ -38,7 +38,7 @@ def render(result: dict, validation: dict, pack: dict, meta: dict, fit: list = N
          f"| 생성 | {meta.get('created')} · 모델 `{meta.get('model')}` · 비용 ${meta.get('cost_usd') or 0:.4f} |",
          f"| 기준 | 단계 **{P['band']}** ({P.get('confidence')}, 근거 {P.get('postings')}건) · 직무 {pack['request'].get('role') or '-'}"
          + (f" · 공고 `{pack['job']['uid']}` {pack['job']['company']} / {pack['job']['title']}" if pack.get("job") else "") + " |",
-         f"| 데이터 | 현재 모집 중 공고 기준 (최근 신규 동향 아님) |",
+         f"| 데이터 | 현재 모집 중 공고 기준 (최근 신규 동향 아님) · 수집일 {meta.get('data_as_of') or '알 수 없음'} |",
          f"| 품질 | 검증 통과율 {validation['pass_rate']:.0%} · 날조 의심 {validation['hallucination_rate']:.0%} · 제외된 지적 {len(failed)}개 |",
          f"| 근거 출처 | 공고 {mix.get('공고',0)} · 통계 {mix.get('통계',0)} · 멘토 {mix.get('멘토',0)} · 단계추정 {mix.get('단계추정',0)} · 의견 {mix.get('의견',0)} |",
          "", "## 1. 한눈에 보기", ""]
