@@ -12,6 +12,7 @@ models:
   claude-sonnet:   {provider: claude_cli, model: sonnet}
   claude-haiku:    {provider: claude_cli, model: haiku}
   claude-opus:     {provider: claude_cli, model: opus}
+  claude-fable:    {provider: claude_cli, model: claude-fable-5-1}
   # 로컬 (Ollama 설치 후: brew install ollama && ollama pull <tag>). M1 8GB에서는 4B급, 입력 4K~8K부터 테스트.
   local-qwen-small:  {provider: ollama, model: "qwen3:4b", num_ctx: 8192}       # 태그는 `ollama list`/라이브러리에서 확인 후 수정
   local-gemma-small: {provider: ollama, model: "gemma3:4b", num_ctx: 8192}
