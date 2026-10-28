@@ -18,7 +18,7 @@ from .run import ROOT, user_agent
 
 def main(slugs):
     g = yaml.safe_load((ROOT / "crawler" / "sites.yaml").read_text("utf-8"))["global"]
-    f = Fetcher(user_agent(g), rate_per_sec=0.5, max_requests=len(slugs) * 2 + 10)
+    f = Fetcher(user_agent(g), rate_per_sec=0.5, max_requests=len(slugs) * 4 + 10)
     for s in slugs:
         found = []
         try:

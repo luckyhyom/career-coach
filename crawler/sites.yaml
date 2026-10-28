@@ -38,6 +38,11 @@ sites:
     enabled: true
     note: "사람인 오픈 API (공식). .env에 SARAMIN_ACCESS_KEY 필요 — 없으면 자동 건너뜀"
     keywords: "백엔드"
+  saramin_web:
+    enabled: true
+    note: "사람인 웹 (API 키 승인 전 임시, 개인 분석용). robots.txt 허용 경로(검색 목록·상세 iframe)만, 차단 시 즉시 중단. SARAMIN_ACCESS_KEY가 생기면 자동으로 건너뜀"
+    keywords: ["백엔드", "Node.js", "NestJS", "서버 개발"]
+    max_pages: 5              # 키워드당 목록 최대 페이지(40건/페이지, 등록일 내림차순)
   worknet_api:
     enabled: false
     note: "고용24(워크넷) 오픈 API. 키 발급 후 어댑터 추가 예정"

@@ -10,12 +10,12 @@ from pathlib import Path
 import yaml
 
 from . import db, extract, stats
-from .adapters import ats, rallit, remember, saramin_api
+from .adapters import saramin_web, ats, rallit, remember, saramin_api
 from .adapters.common import RoleFilter
 from .fetch import Fetcher, SiteAborted
 
 ROOT = Path(__file__).resolve().parent.parent
-ADAPTERS = {"remember": remember, "rallit": rallit, "saramin_api": saramin_api, "ats": ats}
+ADAPTERS = {"remember": remember, "rallit": rallit, "saramin_api": saramin_api, "saramin_web": saramin_web, "ats": ats}
 
 
 def load_env():
